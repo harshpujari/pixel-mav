@@ -486,7 +486,62 @@ interface PixelMavStore {
 
 ---
 
-### 12. Build Pipeline
+### 12. Asset Import Pipeline
+
+When new tilesets or sprite sheets are purchased or created, they go through a staged import pipeline before landing in `assets/`.
+
+```
+Raw tileset PNG
+      │
+      ▼
+Stage 1 — Detect Assets          (scripts/1-detect-assets.ts)
+      │  Flood-fill connected regions to find individual sprites.
+      │  Outputs: detected-assets.json (bounds for each region)
+      │
+      ▼
+Stage 2 — Visual Editor          (scripts/2-asset-editor.html)
+      │  Browser UI to review detected bounds, adjust positions,
+      │  split merged sprites, discard noise.
+      │
+      ▼
+Stage 3 — Vision Metadata        (scripts/3-vision-inspect.ts)
+      │  Claude vision API reads each cropped sprite and suggests:
+      │  name, category (furniture/tile/effect), rotation variant,
+      │  toggle state, footprint size (1×1, 2×2, etc.)
+      │
+      ▼
+Stage 4 — Metadata Review        (scripts/4-review-metadata.html)
+      │  Browser UI to accept/edit/reject Claude's suggestions.
+      │  Confirm footprint, category, name before export.
+      │
+      ▼
+Stage 5 — Export PNGs            (scripts/5-export-assets.ts)
+      │  Crop each approved sprite to its bounds.
+      │  Output individual PNGs → assets/furniture/, assets/tiles/
+      │
+      ▼
+Stage 6 — Atlas Generation       (scripts/generate-atlas.ts)
+      │  Pack all exported PNGs into a single sprite atlas.
+      │  Output: assets/atlas.png + assets/atlas.json (frame rects)
+      │
+      ▼
+Stage 7 — Catalog Update         (auto, end of Stage 5)
+      Merge new entries into assets/furniture-catalog.json
+      with name, category, footprint, rotation groups, toggle states.
+```
+
+**Rotation groups:** Furniture with multiple orientations (front/back/left/right) is grouped at import time. The editor shows the front variant only; rotation cycles through the group.
+
+**Toggle states:** On/off variants (e.g. monitor on/off, lamp on/off) detected as state groups during metadata review. `T` key toggles between them in the editor.
+
+**Colorization strategy:**
+- *Adjust mode* (default): shift original HSL — hue rotates ±180°, saturation/lightness ±100. Used for fur tint variation on cats.
+- *Colorize mode*: grayscale source → fixed HSL target (Photoshop-style). Used for floor tiles and wall tiles so any pattern can be painted any color.
+- Colorized sprites cached per color params to avoid recomputing each frame.
+
+---
+
+### 13. Build Pipeline
 
 ```
 src/           → esbuild  → dist/extension.js     (extension host)
@@ -499,7 +554,7 @@ test/          → Vitest   → coverage/
 
 ---
 
-### 13. Performance Targets
+### 14. Performance Targets
 
 | Metric | Target |
 |---|---|
@@ -511,7 +566,7 @@ test/          → Vitest   → coverage/
 
 ---
 
-### 14. Future Ideas
+### 15. Future Ideas
 
 - **Cat personalities** — breed-specific behavior weights (orange cats = more zoomies, void cats = more naps)
 - **Seasonal themes** — holiday decor, snow particles on windows
