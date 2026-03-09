@@ -6,11 +6,11 @@ Track what's done, what's in progress, and what's next.
 
 ---
 
-## Phase 1 — Project Scaffold
-- [ ] Init VS Code extension (package.json, tsconfig, esbuild)
-- [ ] Init webview (Vite + React + TypeScript)
-- [ ] Wire up WebviewViewProvider (extension ↔ webview postMessage)
-- [ ] Dev workflow: `npm run dev` + F5 launch
+## Phase 1 — Project Scaffold ✓
+- [x] Init VS Code extension (package.json, tsconfig, esbuild)
+- [x] Init webview (Vite + React + TypeScript)
+- [x] Wire up WebviewViewProvider (extension ↔ webview postMessage)
+- [x] Dev workflow: `npm run dev` + F5 launch
 
 ---
 
