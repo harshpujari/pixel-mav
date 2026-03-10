@@ -14,11 +14,11 @@ Track what's done, what's in progress, and what's next.
 
 ---
 
-## Phase 2 — Game Loop & Canvas
-- [ ] Mount `<canvas>` in webview
-- [ ] RAF game loop with delta time cap
-- [ ] Camera: pan (middle-drag), zoom (scroll), follow lerp
-- [ ] `imageSmoothingEnabled = false` for crisp pixels
+## Phase 2 — Game Loop & Canvas ✓
+- [x] Mount `<canvas>` in webview
+- [x] RAF game loop with delta time cap
+- [x] Camera: pan (middle-drag), zoom (scroll), follow lerp
+- [x] `imageSmoothingEnabled = false` for crisp pixels
 
 ---
 
