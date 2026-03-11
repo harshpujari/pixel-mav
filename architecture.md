@@ -1,8 +1,23 @@
-# Pixel Mav - Architecture
+# Pixel Mav — Architecture
 
 > A VS Code extension that brings Claude Code agents to life as animated pixel art cats in a cozy virtual space.
 
 Each Claude Code terminal spawns a unique cat character that reacts in real-time — typing when the agent writes code, reading when it searches, napping when idle, and occasionally doing zoomies.
+
+---
+
+## Design Philosophy
+
+Pixel-mav prioritizes **cat personality** — 12+ distinct states including sleep, groom, stretch, zoomies, and multi-cat social behaviors — while keeping the implementation pragmatic:
+
+| Decision | Why |
+|----------|-----|
+| `Map<string, Cat>` not ECS | <50 entities. ECS adds indirection that doesn't pay off at this scale. |
+| State machine not behavior trees | 11 states fit cleanly in a `switch`. BTs shine at 50+ composable behaviors. |
+| BFS not A\* | Max grid 64×64 = 4096 tiles. BFS visits all of them in <1ms. A\* saves nothing. |
+| Clear-and-redraw not dirty regions | Small canvas (<1000×600 device pixels). Full redraw at 60fps is trivially fast. |
+| Manual offset+zoom not ctx transforms | Integer pixel alignment for crisp pixel art. No transform state bugs. |
+| PNG sprite sheets not hex arrays | Editable in any pixel art editor. More maintainable than code-defined sprites. |
 
 ---
 
@@ -20,11 +35,11 @@ Each Claude Code terminal spawns a unique cat character that reacts in real-time
 │         │                 │                    │              │
 │         │     ┌───────────┴────────────────────┘              │
 │         │     │                                               │
-│  ┌──────┴─────┴──┐  ┌──────────────┐  ┌──────────────────┐  │
-│  │ Webview        │  │ Layout       │  │ Asset            │  │
-│  │ Provider       │──│ Persistence  │  │ Loader           │  │
-│  │ (IPC bridge)   │  │ (versioned)  │  │ (sprites/atlas)  │  │
-│  └──────┬─────────┘  └──────────────┘  └──────────────────┘  │
+│  ┌──────┴─────┴──┐  ┌──────────────┐                        │
+│  │ Webview        │  │ Layout       │                        │
+│  │ Provider       │──│ Persistence  │                        │
+│  │ (IPC bridge)   │  │ (versioned)  │                        │
+│  └──────┬─────────┘  └──────────────┘                        │
 │         │ postMessage                                         │
 └─────────┼───────────────────────────────────────────────────┘
           │
@@ -38,28 +53,27 @@ Each Claude Code terminal spawns a unique cat character that reacts in real-time
 │  ┌──────┴───────────────────────────────────────────────┐    │
 │  │                    Game Engine                         │   │
 │  │  ┌────────────┐  ┌────────────┐  ┌────────────────┐  │   │
-│  │  │ Game Loop   │  │ ECS World  │  │ Renderer       │  │   │
-│  │  │ (RAF + dt)  │──│ (entities, │──│ (Canvas 2D,    │  │   │
-│  │  │             │  │ components,│  │ dirty regions) │  │   │
-│  │  │             │  │ systems)   │  │                │  │   │
+│  │  │ Game Loop   │  │ Cat Store  │  │ Renderer       │  │   │
+│  │  │ (RAF + dt)  │──│ (Map<id,  │──│ (Canvas 2D,    │  │   │
+│  │  │             │  │  Cat>)     │  │ offset+zoom)   │  │   │
 │  │  └─────────────┘  └─────┬──────┘  └────────────────┘  │   │
 │  │                         │                              │   │
 │  │  ┌────────────┐  ┌──────┴──────┐  ┌────────────────┐  │   │
-│  │  │ Behavior   │  │ Pathfinding │  │ Sprite Atlas   │  │   │
-│  │  │ Trees      │  │ (A*)        │  │ & Cache        │  │   │
+│  │  │ State      │  │ Pathfinding │  │ Sprite Cache   │  │   │
+│  │  │ Machine    │  │ (BFS)       │  │ (per-zoom)     │  │   │
 │  │  └────────────┘  └─────────────┘  └────────────────┘  │   │
 │  └──────────────────────────────────────────────────────┘    │
 │                                                              │
 │  ┌────────────┐  ┌──────────────┐  ┌──────────────────────┐ │
 │  │ UI Layer   │  │ Editor       │  │ Zustand Store        │ │
-│  │ (React)    │  │ (layout)     │  │ (single truth)       │ │
+│  │ (React)    │  │ (layout)     │  │ (UI state)           │ │
 │  └────────────┘  └──────────────┘  └──────────────────────┘ │
 └──────────────────────────────────────────────────────────────┘
 ```
 
 The extension lives in two processes connected via `postMessage`:
 
-- **Extension Host** — Node.js. Manages terminals, watches Claude Code's JSONL transcript files, detects agent state transitions, loads assets, persists layouts.
+- **Extension Host** — Node.js. Manages terminals, watches Claude Code's JSONL transcript files, detects agent state transitions, persists layouts.
 - **Webview** — Browser sandbox. Runs the game engine (Canvas 2D), renders cats and the environment, handles user interaction.
 
 ---
@@ -72,103 +86,76 @@ pixel-mav/
 │   ├── extension.ts                  # Entry: activate(), deactivate()
 │   ├── webviewProvider.ts            # WebviewViewProvider, IPC bridge
 │   ├── agentManager.ts              # Terminal lifecycle, agent spawn/despawn
-│   ├── transcriptWatcher.ts         # JSONL file watching (fs.watch + polling)
+│   ├── transcriptWatcher.ts         # JSONL file watching (triple-layer)
 │   ├── transcriptParser.ts          # JSONL → typed agent events
 │   ├── stateReconciler.ts           # Debounced events → clean state transitions
-│   ├── assetLoader.ts               # PNG → sprite data, atlas generation
 │   ├── layoutStore.ts               # Versioned layout persistence
-│   ├── constants.ts                 # Extension-side constants
-│   └── types.ts                     # Shared interfaces
+│   ├── constants.ts
+│   └── types.ts
 │
-├── webview-ui/                       # React + TypeScript + Vite
+├── webview-ui/
 │   └── src/
-│       ├── main.tsx                  # Vite entry
-│       ├── App.tsx                   # Root component
-│       ├── store.ts                  # Zustand store (UI + game bridge)
-│       ├── constants.ts             # Game/rendering constants
-│       ├── vscodeApi.ts             # postMessage bridge
+│       ├── main.tsx
+│       ├── App.tsx
+│       ├── store.ts                  # Zustand store (UI state)
+│       ├── constants.ts
+│       ├── vscodeApi.ts              # postMessage bridge
 │       │
 │       ├── engine/                   # Pure game engine (no React deps)
-│       │   ├── gameLoop.ts          # RAF loop, fixed timestep, delta cap
-│       │   ├── ecs/
-│       │   │   ├── world.ts         # Entity registry, component storage
-│       │   │   ├── entity.ts        # Entity ID generation
-│       │   │   ├── components.ts    # Component type definitions
-│       │   │   └── systems/
-│       │   │       ├── movement.ts  # Position updates, interpolation
-│       │   │       ├── animation.ts # Frame advancement, state transitions
-│       │   │       ├── behavior.ts  # Behavior tree evaluation
-│       │   │       ├── pathfinding.ts
-│       │   │       └── activity.ts  # Agent tool state → cat behavior
-│       │   │
-│       │   ├── behaviors/           # Behavior tree nodes
-│       │   │   ├── tree.ts          # BT engine (selector, sequence, decorator)
-│       │   │   ├── catIdle.ts       # Sleep, groom, stretch
-│       │   │   ├── catActive.ts     # Type, read, pounce
-│       │   │   ├── catWander.ts     # Prowl, patrol, zoomies
-│       │   │   └── catSocial.ts     # Multi-cat interactions
-│       │   │
-│       │   ├── pathfinding/
-│       │   │   ├── astar.ts         # A* with weighted tiles
-│       │   │   └── navGrid.ts       # Navigation grid, tile costs
-│       │   │
+│       │   ├── gameLoop.ts          # RAF loop, delta cap, seconds
+│       │   ├── catStore.ts          # Map<string, Cat>, add/remove/iterate
+│       │   ├── stateMachine.ts      # State transitions, weighted random
+│       │   ├── pathfinding.ts       # BFS on tile grid
+│       │   ├── movement.ts          # Path following, pixel interpolation
 │       │   └── renderer/
 │       │       ├── renderer.ts      # Main render orchestrator
 │       │       ├── tileRenderer.ts  # Floor + wall rendering
-│       │       ├── entityRenderer.ts
-│       │       ├── effectRenderer.ts # Spawn/despawn, particles
-│       │       ├── uiRenderer.ts    # Speech bubbles, status labels
-│       │       └── camera.ts        # Viewport, pan, zoom, follow
+│       │       ├── catRenderer.ts   # Cat sprite rendering, Z-sort
+│       │       ├── effectRenderer.ts # Spawn/despawn particles
+│       │       ├── uiRenderer.ts    # Speech bubbles, badges
+│       │       └── camera.ts        # Pan, zoom, follow, offset
 │       │
 │       ├── sprites/
-│       │   ├── atlas.ts             # Sprite atlas packing + lookup
-│       │   ├── catSprites.ts        # Cat sprite definitions
-│       │   ├── furnitureSprites.ts
-│       │   ├── tileSprites.ts
-│       │   └── colorize.ts          # HSL colorization for fur patterns
+│       │   ├── spriteData.ts        # Frame rects, animation definitions
+│       │   ├── spriteCache.ts       # Per-zoom cached canvases
+│       │   └── colorize.ts          # HSL colorization for breeds
 │       │
 │       ├── environment/
 │       │   ├── types.ts             # Layout, tile, furniture types
 │       │   ├── tileMap.ts           # 2D tile grid, walkability
 │       │   ├── furnitureCatalog.ts  # Cat furniture catalog
-│       │   └── layoutSerializer.ts  # Layout ↔ JSON with migrations
+│       │   └── layoutSerializer.ts  # Layout ↔ JSON
 │       │
 │       ├── editor/
 │       │   ├── editorState.ts       # Tool selection, undo/redo
-│       │   ├── editorActions.ts     # Pure layout mutation functions
-│       │   └── EditorToolbar.tsx    # Palette, tools, color pickers
+│       │   ├── editorActions.ts     # Layout mutation functions
+│       │   └── EditorToolbar.tsx
 │       │
-│       ├── components/              # React UI
-│       │   ├── GameCanvas.tsx       # Canvas, mouse/keyboard input
-│       │   ├── Toolbar.tsx          # Bottom bar: +Cat, Layout, Settings
-│       │   ├── ZoomControls.tsx
+│       ├── components/
+│       │   ├── GameCanvas.tsx       # Canvas, input handlers
+│       │   ├── Toolbar.tsx          # Bottom bar
 │       │   ├── SettingsModal.tsx
-│       │   ├── CatBadge.tsx         # Activity overlay above cats
+│       │   ├── CatBadge.tsx
 │       │   └── DebugOverlay.tsx
 │       │
 │       └── audio/
-│           ├── sounds.ts            # Web Audio: purr, meow, chime
+│           ├── sounds.ts
 │           └── audioManager.ts
 │
-├── assets/                           # Source sprites
-│   ├── cats/                        # Breed sprite sheets
-│   ├── furniture/                   # Cat-themed furniture
-│   ├── tiles/                       # Floor + wall patterns
-│   └── effects/                     # Particles (yarn, paw prints)
+├── assets/
+│   ├── cats/                        # Breed sprite sheets (PNG)
+│   ├── furniture/
+│   ├── tiles/
+│   └── effects/
 │
-├── scripts/                          # Build utilities
-│   ├── build.ts                     # esbuild (extension)
-│   ├── import-tileset.ts            # Asset import pipeline
-│   └── generate-atlas.ts           # Sprite atlas packer
+├── scripts/
+│   └── build.ts                     # esbuild (extension)
 │
 ├── test/
-│   ├── engine/                      # Vitest unit tests
-│   └── integration/                 # Playwright tests
 │
 ├── package.json
 ├── tsconfig.json
 ├── vite.config.ts
-├── vitest.config.ts
 └── architecture.md
 ```
 
@@ -176,129 +163,155 @@ pixel-mav/
 
 ## Core Systems
 
-### 1. Entity-Component-System (ECS)
+### 1. Cat Entity Model
 
-All game objects (cats, furniture, effects) are entities — just numeric IDs with attached component data. Systems operate on component groups each frame.
-
-**Components** (pure data):
+All cats are stored in a `Map<string, Cat>` — a flat interface with all state fields. No classes, no ECS. Simple and inspectable in the debugger.
 
 ```typescript
-interface PositionComponent {
-  col: number;  row: number
-  pixelX: number;  pixelY: number   // interpolated render position
-}
+type CatState =
+  | 'idle' | 'walk' | 'type' | 'read' | 'wait'    // core
+  | 'sleep' | 'groom' | 'stretch'                   // idle behaviors
+  | 'wander' | 'zoomies'                             // movement behaviors
+  | 'nap_pile' | 'play' | 'headbonk';               // social behaviors
 
-interface SpriteComponent {
-  atlasKey: string
-  frameIndex: number
-  direction: Direction
-  flipX: boolean
-  tint?: HSLShift
-}
+interface Cat {
+  id: string;
 
-interface MovementComponent {
-  path: Vec2[]          // A* waypoints
-  pathIndex: number
-  speed: number         // px/sec
-  progress: number      // 0–1 between waypoints
-}
+  // Agent binding
+  agentId: string | null;
+  seatCol: number;
+  seatRow: number;
+  activeTool: string | null;
+  isSubagent: boolean;
+  parentAgentId: string | null;
 
-interface AnimationComponent {
-  state: CatAnimState   // IDLE | WALK | TYPE | READ | SLEEP | GROOM | STRETCH | ZOOMIES
-  frameTimer: number
-  frameDuration: number
-  loop: boolean
-}
+  // Appearance
+  breed: CatBreed;         // tabby | tuxedo | calico | siamese | void | orange
+  hueShift: number;        // degrees, for >6 agents
 
-interface AgentComponent {
-  agentId: string
-  terminalId: number
-  seatId: string
-  activeTool: string | null
-  isWaiting: boolean
-  parentAgentId?: string   // sub-agents
-}
+  // Position (world pixels, not device pixels)
+  x: number;
+  y: number;
+  tileCol: number;
+  tileRow: number;
 
-interface BehaviorComponent {
-  tree: BehaviorNode
-  blackboard: Map<string, unknown>
+  // State machine
+  state: CatState;
+  stateTimer: number;      // seconds in current state
+  stateDuration: number;   // when to transition (for timed states)
+
+  // Movement
+  path: Vec2[];            // BFS waypoints
+  moveProgress: number;    // 0-1 lerp between current and next tile
+  speed: number;           // tiles per second
+
+  // Animation
+  direction: Direction;    // down | up | right (left = flipped right)
+  frame: number;
+  frameTimer: number;
+
+  // Social
+  socialCooldown: number;  // seconds until next social check
+
+  // UI
+  bubbleType: 'permission' | 'waiting' | null;
+  bubbleTimer: number;
+
+  // Effects
+  spawnEffect: boolean;
+  despawnEffect: boolean;
+  effectTimer: number;
 }
 ```
 
-**Systems** (run each frame in order):
-
-```
-ActivitySystem    → maps agent tool events to behavior signals
-BehaviorSystem    → evaluates behavior trees, picks actions
-PathfindingSystem → runs A* when behavior requests a destination
-MovementSystem    → advances position along path
-AnimationSystem   → ticks frame timers, advances sprites
-RenderSystem      → draws entities Z-sorted by Y
-```
-
-This separation means new behaviors are just new components + systems — no existing code touched.
+**Sub-agent support:** When Claude's Task tool spawns a sub-agent, it creates a cat with `isSubagent: true` and a negative numeric suffix on the ID. Sub-agents get the same breed as their parent. Seat is assigned to the closest free seat to the parent.
 
 ---
 
-### 2. Cat Behavior Trees
+### 2. Cat State Machine & Behaviors
 
-Cats use behavior trees for natural-looking actions instead of a basic state machine.
+Cats use a finite state machine with weighted random transitions for idle behaviors. This replaces behavior trees — simpler, debuggable, and sufficient for ~12 states.
+
+#### All States
+
+| State | Trigger | Animation | Duration | Notes |
+|-------|---------|-----------|----------|-------|
+| `idle` | Default / between actions | Standing, occasional blink | 1-3s | Gateway state for all transitions |
+| `walk` | Moving to destination | Trot cycle (4 frames) | Until arrival | Speed: 3 tiles/sec |
+| `type` | Agent writing/editing code | Paws on keyboard (2 frames) | While tool active | Sits at desk, +6px offset |
+| `read` | Agent reading/searching | Eyes scanning, ear twitch | While tool active | Sits at desk, +6px offset |
+| `wait` | Agent needs permission | Look around impatiently | While waiting | Bubble overlay after 7s |
+| `sleep` | Idle behavior (40%) | Curled up, Z bubbles | 8-15s | Min duration enforced |
+| `groom` | Idle behavior (20%) | Lick paw (2 frames) | 3-5s | |
+| `stretch` | Idle behavior (10%) | Big stretch + yawn | 2-3s | |
+| `wander` | Idle behavior (20%) | Walk to random tile | Until arrival | Uses BFS, picks walkable tile |
+| `zoomies` | Idle behavior (10%) | Fast trot (2x speed) | 3-5s | Multiple random destinations |
+| `nap_pile` | Nearby cat sleeping | Sleep next to them | 8-15s | Social: proximity check |
+| `play` | Nearby cat idle/wandering | Chase sequence | 3-5s | Social: both cats move |
+| `headbonk` | Nearby cat idle | Walk over + bump anim | 2s | Social: one-sided approach |
+
+#### Transition Logic
 
 ```
-Root (Selector)
-├── AgentActive (Sequence)                    # Claude is using a tool
-│   ├── WalkToSeat (if not already there)
-│   ├── SitDown
-│   └── Selector
-│       ├── TypeAnimation (Write/Edit/Bash)   # paws on keyboard
-│       ├── ReadAnimation (Read/Grep/Glob)    # eyes scanning
-│       └── WaitAnimation (permission)        # look around impatiently
-│
-├── AgentIdle (Sequence)                      # Claude waiting for input
-│   ├── IdleBehavior (WeightedRandom)
-│   │   ├── Sleep       (40%)   # curl up, Z bubbles, min 8s
-│   │   ├── Groom       (20%)   # lick paw, min 3s
-│   │   ├── Stretch     (10%)   # big stretch + yawn
-│   │   ├── Wander      (20%)   # explore (prefer sunny spots)
-│   │   └── Zoomies     (10%)   # sudden burst of speed!
-│   │
-│   └── SocialBehavior (if nearby cats)
-│       ├── NapPile     # sleep near another sleeping cat
-│       ├── Play        # chase another cat
-│       └── Headbonk    # walk over, bump animation
-│
-└── Fallback → sit at seat, idle blink
+Agent becomes ACTIVE (tool started):
+  → If not at seat: state = walk, path = BFS(current → seat)
+  → If at seat: state = type / read / wait (based on tool)
+
+Agent becomes IDLE (turn ended):
+  → state = idle, start 2s cooldown
+  → After cooldown, weighted random pick:
+      sleep(40%) / groom(20%) / stretch(10%) / wander(20%) / zoomies(10%)
+
+Social check (every 3s while in idle/sleep/groom/stretch):
+  → Find nearest cat within 3 tiles
+  → If nearby cat sleeping → 30% chance → nap_pile
+  → If nearby cat idle/wandering → 20% chance → play or headbonk
+
+Current timed behavior finishes (stateTimer >= stateDuration):
+  → state = idle, pick new idle duration (1-3s)
+
+Agent becomes ACTIVE during any idle/social behavior:
+  → Interrupt immediately → walk to seat → work state
+
+Walk path completed:
+  → If was heading to seat AND agent active → type / read / wait
+  → If was wandering → idle
+  → If was doing zoomies AND time remains → pick new random destination
+  → Otherwise → idle
 ```
 
-**Node types:**
-- **Selector** — try children in order, succeed on first success
-- **Sequence** — run children in order, fail on first failure
-- **WeightedRandom** — pick one child by weight
-- **Decorator** — modify child (MinDuration, Cooldown, Inverter)
-- **Leaf** — concrete action (WalkTo, PlayAnimation, Wait)
+#### Tool → Animation Mapping
+
+| Tools | Cat State | Visual |
+|-------|-----------|--------|
+| Write, Edit, Bash, Task, NotebookEdit | `type` | Paws batting keyboard |
+| Read, Grep, Glob, WebFetch, WebSearch | `read` | Eyes scanning, tail flick |
+| AskUserQuestion / permission prompt | `wait` | Impatient look-around |
 
 ---
 
-### 3. A\* Pathfinding with Weighted Tiles
+### 3. BFS Pathfinding
+
+Simple breadth-first search on a 4-connected tile grid.
 
 ```typescript
-interface NavGrid {
-  width: number
-  height: number
-  costs: Float32Array   // per-tile cost. 1.0 = normal, Infinity = blocked
+function findPath(
+  startCol: number, startRow: number,
+  endCol: number, endRow: number,
+  tileMap: TileMap,
+  blockedTiles: Set<string>,
+): Vec2[] {
+  // Standard BFS with visited set and parent map
+  // 4 directions: up, down, left, right (no diagonals)
+  // Returns path excluding start, including end
+  // Empty array if no path found
 }
-
-// Example tile costs:
-// Floor:       1.0
-// Sunny spot:  0.5   (cats gravitate toward warmth)
-// Near window: 0.7
-// Water bowl:  2.0   (cats avoid water)
-// Blocked:     Infinity
 ```
 
-- 8-connected movement (diagonal allowed, √2 cost)
-- Path smoothing removes unnecessary waypoints on straight lines
-- Cached paths invalidated only on layout changes
+- **Walkability:** tile is walkable if not WALL, not VOID, and not in blockedTiles set
+- **Blocked tiles:** built from furniture footprints, temporarily unblocked for own seat
+- **Movement speed:** 48 px/sec ÷ 16 px/tile = 3 tiles/sec (6 tiles/sec for zoomies)
+- **Interpolation:** `moveProgress` (0→1) lerps between tile centers each frame
 
 ---
 
@@ -311,16 +324,15 @@ JSONL record
     │
     ▼
 TranscriptParser        # Parse raw JSONL → typed events
-    │
+    │                     - type: 'assistant' with tool_use blocks
+    │                     - type: 'user' with tool_result blocks
+    │                     - type: 'system', subtype: 'turn_duration'
     ▼
-EventBuffer             # Collect events within 200ms window
-    │
-    ▼
-StateReconciler         # Compute clean state transitions
+StateReconciler         # 200ms event buffer → clean AgentState
     │                     - Coalesce rapid tool start/stop
-    │                     - Track nested sub-agents
+    │                     - Track active tool IDs + names
     │                     - Use turn_duration as authoritative end signal
-    │
+    │                     - 5s silence fallback for idle detection
     ▼
 AgentState              # ACTIVE(tool) | WAITING | IDLE
     │
@@ -328,42 +340,53 @@ AgentState              # ACTIVE(tool) | WAITING | IDLE
 postMessage → Webview   # Single clean update per reconciliation cycle
 ```
 
-**File watching strategy:** `fs.watch` (primary, event-driven) + `fs.watchFile` (fallback, stat-based polling) for cross-platform reliability. Partial-line buffering handles records split across reads.
+**File watching strategy (triple-layer for cross-platform reliability):**
+1. `fs.watch()` — event-driven (fast but unreliable on macOS)
+2. `fs.watchFile()` — stat-based polling every 1s (reliable fallback)
+3. Manual polling interval — 1s safety net
 
-**Tool → animation mapping:**
-- Read, Grep, Glob, WebFetch, WebSearch → reading animation (eyes scanning, ear twitch)
-- Write, Edit, Bash, Task → typing animation (paws on keyboard)
-- AskUserQuestion / permission wait → impatient look-around
+All three run simultaneously. First change triggers read. Partial-line buffering handles records split across reads.
+
+**Permission bubbles:** Shown 7 seconds after a non-exempt tool starts (exempt: Task, AskUserQuestion). Cleared when new data arrives or tool completes.
+
+**Waiting state:** Triggered by `turn_duration` record (definitive turn end) or 5 seconds of silence if no tools were used in the turn.
 
 ---
 
 ### 5. Rendering
 
-Canvas 2D with dirty-region tracking:
+Canvas 2D with full clear-and-redraw each frame. No dirty regions, no ctx transforms.
 
 ```
-1. Camera update (pan / zoom / follow lerp)
-2. Compute visible tile range from viewport
-3. Render floor tiles (dirty chunks only)
-4. Render wall tiles (dirty chunks only)
-5. Collect visible entities
-6. Z-sort by (row × TILE_SIZE + offsetY)
-7. Draw entities from sprite atlas
-8. Draw effects (particles, spawn/despawn)
-9. Draw UI overlay (bubbles, labels)
+Each frame:
+1. Clear entire canvas (device pixels)
+2. Camera: update follow lerp → compute offset
+3. Draw floor tiles (visible range only)
+4. Draw wall tiles
+5. Collect visible entities (cats + furniture)
+6. Z-sort by bottom-edge Y coordinate
+7. Draw entities from sprite cache
+8. Draw effects (spawn/despawn particles)
+9. Draw UI overlays (bubbles, badges)
 ```
 
-- Tile grid divided into 8×8 chunks; only re-render chunks that changed
-- All sprites packed into a single atlas at build time → one `drawImage` per sprite
-- Pre-scaled atlas cached per integer zoom level (1x–10x)
-- `imageSmoothingEnabled = false` for crisp pixels
-- Game loop pauses when the webview tab is not visible
+**Coordinate system:**
+- All rendering in device pixels (canvas.width × canvas.height)
+- No `ctx.scale(dpr)` — multiply manually for crisp integer alignment
+- Position: `drawX = offsetX + worldX * zoom`, `drawY = offsetY + worldY * zoom`
+- Font sizes: `desiredCSSSize * dpr`
+
+**Sprite cache:** Per-zoom `WeakMap<ImageBitmap, OffscreenCanvas>`. Each sprite pre-scaled to the current zoom level once, then drawn via `ctx.drawImage()` for the rest of the frame. Cache invalidated only when zoom changes.
+
+**Z-sorting:** All drawables (cats, furniture, wall tops) have `zY = bottomEdgeY`. Sort ascending, draw in order. Cats sitting at desks get +6px offset for visual sitting position (does not affect zY).
 
 ---
 
 ### 6. Cat Sprites
 
-**Sprite sheet layout** (per breed, 128×128, 16×16 frames):
+**Sprite dimensions:** 16×24 pixels per frame (taller than tile for natural cat proportions).
+
+**Sprite sheet layout** (per breed PNG, 128×96):
 
 ```
 Row 0 (Down):    idle | walk1 | walk2 | walk3 | sit | type1 | type2 | read
@@ -374,18 +397,19 @@ Row 3 (Special): sleep1 | sleep2 | groom1 | groom2 | stretch1 | stretch2 | zoomi
 
 Left-facing = horizontally flipped right row at runtime.
 
-**6 breeds:** Tabby, Tuxedo, Calico, Siamese, Void (all-black), Orange. Beyond 6 agents, breed repeats with a random hue shift for uniqueness.
+**6 breeds:** Tabby, Tuxedo, Calico, Siamese, Void (all-black), Orange.
+Beyond 6 agents, breed repeats with a random hue shift (≥45°) for uniqueness.
 
 | State | Frames | Speed | Notes |
-|---|---|---|---|
-| Idle | [0] | — | Occasional blink (random interval) |
+|-------|--------|-------|-------|
+| Idle | [0] | — | Occasional blink (random 3-6s interval) |
 | Walk | [1,2,3,2] | 0.15s/frame | Trotting cycle |
 | Type | [5,6] | 0.25s/frame | Paws batting keyboard |
 | Read | [7] + blink | 0.4s/frame | Eyes scanning, tail flick |
-| Sleep | [S0,S1] | 0.8s/frame | Curled up, breathing |
+| Sleep | [S0,S1] | 0.8s/frame | Curled up, Z bubbles above |
 | Groom | [G0,G1] | 0.5s/frame | Lick paw |
 | Stretch | [St0,St1] | 0.6s/frame | Stretch + yawn |
-| Zoomies | [1,2,3,2] | 0.08s/frame | Walk cycle at 2x speed |
+| Zoomies | [1,2,3,2] | 0.08s/frame | Walk cycle at 2× speed |
 
 ---
 
@@ -395,23 +419,37 @@ Left-facing = horizontally flipped right row at runtime.
 - `VOID` — empty, non-walkable, transparent
 - `FLOOR` — walkable, colorizable (wood, carpet, tile patterns)
 - `WALL` — non-walkable, auto-tiled (4-bit bitmask → 16 variants)
-- `SUNNY` — walkable, reduced pathfinding cost (cats gravitate here)
+- `SUNNY` — walkable, cats gravitate here during wander (not pathfinding cost — just preference in random tile selection)
 
 **Cat-themed furniture:**
 
 | Category | Items |
-|---|---|
+|----------|-------|
 | Work | Tiny laptop, monitor, desk, keyboard |
 | Comfort | Cat bed, cat tree, scratching post, window perch, heated pad |
 | Food | Food bowl, water fountain, treat dispenser |
-| Toys | Yarn ball, feather wand, laser dot (particle effect), cardboard box |
+| Toys | Yarn ball, feather wand, laser dot, cardboard box |
 | Decor | Plant, bookshelf, rug, window |
 
-Default grid: 20×11 tiles (expandable to 64×64 in editor). Furniture supports rotation (front/back/left/right variants) and toggle states (electronics on/off).
+Default grid: 20×11 tiles (expandable to 64×64 in editor).
+
+**Seat positions:** Derived from desk furniture placement. Each desk has a seat tile in front of it where cats sit to type/read.
 
 ---
 
-### 8. Layout Editor
+### 8. Spawn & Despawn Effects
+
+**Spawn:** Particle burst (paw prints / sparkles) + cat fades in over 0.4s. Optional "mew" sound.
+
+**Despawn:** Cat yawns, curls up, fades out over 0.5s. Paw-print particles scatter outward.
+
+**Matrix variant (sub-agents):** Green character rain effect with per-column stagger and flicker. Used for Task tool sub-agent spawn/despawn.
+
+**Restored agents** (webview reloaded) skip the spawn effect — they just appear.
+
+---
+
+### 9. Layout Editor
 
 Built into the webview, toggled via toolbar:
 
@@ -420,16 +458,16 @@ Built into the webview, toggled via toolbar:
 **Features:**
 - 50-level undo/redo (layout snapshots)
 - Ghost border outside grid — click to expand
-- Furniture placement preview with valid (green) / invalid (red) tinting
-- Color picker for floor/wall tints (HSL adjustment)
+- Furniture placement preview (green = valid, red = invalid)
+- Color picker for floor/wall HSL tint
 - Right-click to erase
-- Keyboard: Ctrl+Z/Y (undo/redo), R (rotate), T (toggle state), Esc (deselect/exit)
+- Keyboard: Ctrl+Z/Y (undo/redo), R (rotate), T (toggle state), Esc
 
 **Persistence:** Layouts saved as versioned JSON at `~/.pixel-mav/layout.json`, shared across VS Code windows. File watcher syncs changes between windows.
 
 ---
 
-### 9. State Management
+### 10. State Management
 
 **Zustand store** — UI state that React subscribes to:
 ```typescript
@@ -437,116 +475,47 @@ interface PixelMavStore {
   agents: Map<string, AgentInfo>
   selectedCatId: string | null
   isEditorOpen: boolean
-  zoom: number
   soundEnabled: boolean
-  // actions...
 }
 ```
 
-**Game state object** — engine-internal, never triggers React re-renders:
-- Entity positions, paths, animation timers, behavior blackboards
-- Updated by systems each frame
+**Game state** — engine-internal `Map<string, Cat>`, never triggers React re-renders. Updated by `updateCat()` each frame.
 
-**Bridge:** Zustand actions dispatch events into the engine. The engine reads the store for agent data. Clean separation prevents React re-renders from blocking the game loop.
+**Bridge:** Zustand actions dispatch events into the engine (e.g. agent state changes from extension messages). The engine reads the store for agent data. Clean separation prevents React re-renders from blocking the game loop.
 
 ---
 
-### 10. Message Protocol
+### 11. Message Protocol
 
 **Extension → Webview:**
 
 | Message | When |
-|---|---|
-| `catSpawned` | Terminal created |
+|---------|------|
+| `catSpawned` | Terminal created / Claude Code agent detected |
 | `catDespawned` | Terminal closed |
 | `agentActive` | Tool started (after reconciliation) |
 | `agentIdle` | Turn ended / waiting for input |
 | `agentPermission` | Waiting for user approval |
 | `layoutLoaded` | Startup / import / external sync |
-| `assetsLoaded` | After asset loading |
-| `existingCats` | Webview restored |
+| `existingCats` | Webview restored after reload |
 
 **Webview → Extension:**
 
 | Message | When |
-|---|---|
-| `spawnClaude` | "+ Cat" button |
-| `focusCat` | Cat clicked |
+|---------|------|
+| `focusCat` | Cat clicked (focuses terminal) |
 | `closeCat` | Remove cat |
 | `saveLayout` | Editor save |
 | `saveCatSeats` | Seat reassignment |
 
 ---
 
-### 11. Spawn & Despawn Effects
-
-**Spawn:** 0.4s particle poof + cat fades in. Optional "mew" sound via Web Audio API.
-
-**Despawn:** Cat yawns, curls up, fades out over 0.5s. Paw-print particles scatter outward.
-
----
-
-### 12. Asset Import Pipeline
-
-When new tilesets or sprite sheets are purchased or created, they go through a staged import pipeline before landing in `assets/`.
-
-```
-Raw tileset PNG
-      │
-      ▼
-Stage 1 — Detect Assets          (scripts/1-detect-assets.ts)
-      │  Flood-fill connected regions to find individual sprites.
-      │  Outputs: detected-assets.json (bounds for each region)
-      │
-      ▼
-Stage 2 — Visual Editor          (scripts/2-asset-editor.html)
-      │  Browser UI to review detected bounds, adjust positions,
-      │  split merged sprites, discard noise.
-      │
-      ▼
-Stage 3 — Vision Metadata        (scripts/3-vision-inspect.ts)
-      │  Claude vision API reads each cropped sprite and suggests:
-      │  name, category (furniture/tile/effect), rotation variant,
-      │  toggle state, footprint size (1×1, 2×2, etc.)
-      │
-      ▼
-Stage 4 — Metadata Review        (scripts/4-review-metadata.html)
-      │  Browser UI to accept/edit/reject Claude's suggestions.
-      │  Confirm footprint, category, name before export.
-      │
-      ▼
-Stage 5 — Export PNGs            (scripts/5-export-assets.ts)
-      │  Crop each approved sprite to its bounds.
-      │  Output individual PNGs → assets/furniture/, assets/tiles/
-      │
-      ▼
-Stage 6 — Atlas Generation       (scripts/generate-atlas.ts)
-      │  Pack all exported PNGs into a single sprite atlas.
-      │  Output: assets/atlas.png + assets/atlas.json (frame rects)
-      │
-      ▼
-Stage 7 — Catalog Update         (auto, end of Stage 5)
-      Merge new entries into assets/furniture-catalog.json
-      with name, category, footprint, rotation groups, toggle states.
-```
-
-**Rotation groups:** Furniture with multiple orientations (front/back/left/right) is grouped at import time. The editor shows the front variant only; rotation cycles through the group.
-
-**Toggle states:** On/off variants (e.g. monitor on/off, lamp on/off) detected as state groups during metadata review. `T` key toggles between them in the editor.
-
-**Colorization strategy:**
-- *Adjust mode* (default): shift original HSL — hue rotates ±180°, saturation/lightness ±100. Used for fur tint variation on cats.
-- *Colorize mode*: grayscale source → fixed HSL target (Photoshop-style). Used for floor tiles and wall tiles so any pattern can be painted any color.
-- Colorized sprites cached per color params to avoid recomputing each frame.
-
----
-
-### 13. Build Pipeline
+### 12. Build Pipeline
 
 ```
 src/           → esbuild  → dist/extension.js     (extension host)
 webview-ui/    → Vite     → dist/webview/          (browser bundle)
-assets/        → copy     → dist/assets/           (sprites, atlas)
+assets/        → copy     → dist/assets/           (sprites)
 test/          → Vitest   → coverage/
 ```
 
@@ -554,10 +523,10 @@ test/          → Vitest   → coverage/
 
 ---
 
-### 14. Performance Targets
+### 13. Performance Targets
 
 | Metric | Target |
-|---|---|
+|--------|--------|
 | Frame rate | 60 FPS with 20 cats |
 | Webview memory | < 50 MB heap |
 | Sprite atlas | < 2 MB total |
@@ -566,7 +535,7 @@ test/          → Vitest   → coverage/
 
 ---
 
-### 15. Future Ideas
+### 14. Future Ideas
 
 - **Cat personalities** — breed-specific behavior weights (orange cats = more zoomies, void cats = more naps)
 - **Seasonal themes** — holiday decor, snow particles on windows
