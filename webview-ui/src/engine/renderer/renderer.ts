@@ -5,8 +5,8 @@ import type { Camera } from './camera.ts';
  * Main render orchestrator.
  *
  * All drawing uses manual offset + zoom coordinates (no ctx transforms).
- * This matches pixel-agents and ensures crisp integer-pixel alignment
- * for pixel art at any zoom level and DPR.
+ * This ensures crisp integer-pixel alignment for pixel art at any zoom
+ * level and DPR.
  *
  * Phase 2: draws a placeholder tile grid to verify camera, zoom, pan.
  * Later phases will add tile, entity, effect, and UI rendering layers.

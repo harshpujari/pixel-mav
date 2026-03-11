@@ -19,7 +19,7 @@ export interface Vec2 {
 /**
  * Camera for a pixel-art tile-based game.
  *
- * Coordinate system (matching pixel-agents):
+ * Coordinate system:
  * - All internal state (pan, offset, canvas size) is in **device pixels**.
  * - Zoom is an integer multiplier: world pixels × zoom = device pixels.
  * - No ctx transforms — the renderer receives offsetX, offsetY, zoom
@@ -70,7 +70,7 @@ export class Camera {
 
   /**
    * Smoothly follow the target. Call each frame before computeOffset.
-   * Uses a fixed per-frame lerp (frame-rate dependent, same as pixel-agents).
+   * Uses a fixed per-frame lerp (frame-rate dependent — acceptable for cosmetic camera smoothing).
    */
   update(): void {
     if (!this.followTarget) return;

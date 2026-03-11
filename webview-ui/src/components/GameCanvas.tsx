@@ -7,7 +7,6 @@ import { Renderer } from '../engine/renderer/renderer.ts';
 /**
  * The main game canvas. Owns the Camera, Renderer, and GameLoop.
  *
- * Matches pixel-agents architecture:
  * - Container div for reliable resize detection
  * - Canvas backing store at device pixels (no ctx.scale)
  * - Native wheel listener with { passive: false }
