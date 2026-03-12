@@ -1,4 +1,5 @@
 import { DEFAULT_GRID_COLS, DEFAULT_GRID_ROWS, TILE_SIZE } from '../../constants.ts';
+import { drawCats } from './catRenderer.ts';
 import type { Camera } from './camera.ts';
 
 /**
@@ -30,6 +31,9 @@ export class Renderer {
 
     // ── Placeholder grid ──────────────────────────────────
     this.drawPlaceholderGrid(ctx, offsetX, offsetY, zoom);
+
+    // ── Cats ──────────────────────────────────────────────
+    drawCats(ctx, offsetX, offsetY, zoom);
   }
 
   /** Draws a checkerboard grid as a visual placeholder for the tile map */
@@ -77,7 +81,7 @@ export class Renderer {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(
-      'Pixel Mav — Phase 2',
+      'Pixel Mav — Phase 3',
       offsetX + (cols * s) / 2,
       offsetY + (rows * s) / 2,
     );

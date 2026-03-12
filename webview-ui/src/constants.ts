@@ -18,3 +18,30 @@ export const PAN_MARGIN_FRACTION = 0.25; // map must stay at least 25% visible
 
 // ── Rendering ────────────────────────────────────────────────
 export const CHUNK_SIZE = 8; // tiles per dirty-region chunk
+
+// ── Cat movement ─────────────────────────────────────────────
+export const WALK_SPEED = 3;    // tiles/sec (normal walk, wander)
+export const ZOOMIES_SPEED = 6; // tiles/sec (zoomies state)
+
+// ── Cat behavior durations (seconds) ─────────────────────────
+export const IDLE_MIN_SEC = 1;
+export const IDLE_MAX_SEC = 3;
+export const SLEEP_MIN_SEC = 8;
+export const SLEEP_MAX_SEC = 15;
+export const GROOM_MIN_SEC = 3;
+export const GROOM_MAX_SEC = 5;
+export const STRETCH_MIN_SEC = 2;
+export const STRETCH_MAX_SEC = 3;
+export const ZOOMIES_MIN_SEC = 3;
+export const ZOOMIES_MAX_SEC = 5;
+
+// ── Cat animation frame speeds (seconds per frame) ───────────
+export const WALK_FRAME_SEC = 0.15;
+export const TYPE_FRAME_SEC = 0.25;
+export const SLEEP_FRAME_SEC = 0.8;
+export const GROOM_FRAME_SEC = 0.5;
+export const STRETCH_FRAME_SEC = 0.6;
+
+// ── Cat placeholder renderer ─────────────────────────────────
+export const CAT_WIDTH_PX = 10;  // world pixels wide
+export const CAT_HEIGHT_PX = 12; // world pixels tall

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { startGameLoop } from '../engine/gameLoop.ts';
+import { addCat, makeCat, removeCat, updateAllCats } from '../engine/catStore.ts';
 import { Camera } from '../engine/renderer/camera.ts';
 import { Renderer } from '../engine/renderer/renderer.ts';
 
@@ -46,6 +47,14 @@ export function GameCanvas() {
 
     resizeCanvas();
 
+    // ── Phase 3: spawn test cats to verify entity loop ───
+    const TEST_CATS = [
+      makeCat('test-tabby',   5,  3, 'tabby'),
+      makeCat('test-tuxedo', 10,  5, 'tuxedo'),
+      makeCat('test-orange', 15,  8, 'orange'),
+    ];
+    for (const cat of TEST_CATS) addCat(cat);
+
     // Observe container for resize
     const observer = new ResizeObserver(resizeCanvas);
     observer.observe(container);
@@ -60,7 +69,8 @@ export function GameCanvas() {
 
     // Game loop
     const stop = startGameLoop(canvas, {
-      update: (_dt) => {
+      update: (dt) => {
+        updateAllCats(dt);
         camera.update();
         camera.computeOffset();
       },
@@ -73,6 +83,7 @@ export function GameCanvas() {
       stop();
       observer.disconnect();
       canvas.removeEventListener('wheel', onWheel);
+      for (const cat of TEST_CATS) removeCat(cat.id);
     };
   }, [resizeCanvas]);
 
