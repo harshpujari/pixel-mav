@@ -28,16 +28,16 @@ Track what's done, what's in progress, and what's next.
 
 ---
 
-## Phase 3 — Cat Entity + State Machine + First Rendering
+## Phase 3 — Cat Entity + State Machine + First Rendering ✓
 _Get one cat on screen with basic behaviors — proves the entity model works._
 
-- [ ] Define `Cat` interface (position, state, animation, agent binding)
-- [ ] `catStore.ts`: `Map<string, Cat>`, add/remove/get/iterate helpers
-- [ ] `stateMachine.ts`: state transitions in `updateCat(cat, dt, agentState, cats)`
-- [ ] Implement core states: `idle`, `walk`, `type`, `read`, `wait`
-- [ ] Weighted random idle picker (sleep 40%, groom 20%, stretch 10%, wander 20%, zoomies 10%)
-- [ ] Render cat as colored rectangle placeholder (position + direction indicator)
-- [ ] Cat renders on the placeholder grid, walks to random tiles
+- [x] Define `Cat` interface (position, state, animation, agent binding) — `webview-ui/src/types.ts`
+- [x] `catStore.ts`: `Map<string, Cat>`, add/remove/get/updateAllCats helpers + `makeCat` factory
+- [x] `stateMachine.ts`: `updateCat(cat, dt, gridCols, gridRows)` — pure, no store/renderer imports
+- [x] Implement core states: `idle`, `walk`, `type`, `read`, `wait`
+- [x] Weighted random idle picker (sleep 40%, groom 20%, stretch 10%, wander 20%, zoomies 10%)
+- [x] Render cat as colored rectangle placeholder (breed color + state dot + direction dot)
+- [x] Cat renders on the placeholder grid, walks to random tiles (3 test cats spawned)
 
 ---
 
