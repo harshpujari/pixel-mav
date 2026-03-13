@@ -19,11 +19,12 @@ export interface TileCoord {
 export interface Cat {
   id: string;
 
-  // Agent binding (populated in Phase 5)
+  // Agent binding (Phase 5)
   agentId: string | null;
   seatCol: number;
   seatRow: number;
   activeTool: string | null;
+  targetWorkState: 'type' | 'read' | 'wait' | null;
   isSubagent: boolean;
   parentAgentId: string | null;
 

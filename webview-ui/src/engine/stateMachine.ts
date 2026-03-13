@@ -4,6 +4,7 @@ import {
   GROOM_MIN_SEC,
   IDLE_MAX_SEC,
   IDLE_MIN_SEC,
+  READ_FRAME_SEC,
   SLEEP_FRAME_SEC,
   SLEEP_MAX_SEC,
   SLEEP_MIN_SEC,
@@ -99,8 +100,19 @@ function updateMovement(cat: Cat, dt: number, gridCols: number, gridRows: number
 function onArrival(cat: Cat, gridCols: number, gridRows: number): void {
   switch (cat.state) {
     case 'walk':
-      // Phase 5 will redirect to type/read/wait if agent is active at seat.
-      toIdle(cat);
+      // Agent-driven: if cat arrived at its seat with a pending work state, start working
+      if (
+        cat.targetWorkState !== null &&
+        cat.tileCol === cat.seatCol &&
+        cat.tileRow === cat.seatRow
+      ) {
+        cat.state = cat.targetWorkState;
+        cat.stateTimer = 0;
+        cat.frame = 0;
+        cat.frameTimer = 0;
+      } else {
+        toIdle(cat);
+      }
       break;
     case 'wander':
       toIdle(cat);
@@ -202,6 +214,7 @@ const FRAME_SPEED: Partial<Record<CatState, number>> = {
   wander:  WALK_FRAME_SEC,
   zoomies: WALK_FRAME_SEC / 2,
   type:    TYPE_FRAME_SEC,
+  read:    READ_FRAME_SEC,
   sleep:   SLEEP_FRAME_SEC,
   groom:   GROOM_FRAME_SEC,
   stretch: STRETCH_FRAME_SEC,
@@ -213,6 +226,7 @@ const FRAME_COUNT: Partial<Record<CatState, number>> = {
   wander:  4,
   zoomies: 4,
   type:    2,
+  read:    2,
   sleep:   2,
   groom:   2,
   stretch: 2,

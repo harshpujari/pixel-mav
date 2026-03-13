@@ -49,6 +49,7 @@ export function makeCat(
     seatCol: tileCol,
     seatRow: tileRow,
     activeTool: null,
+    targetWorkState: null,
     isSubagent: false,
     parentAgentId: null,
 

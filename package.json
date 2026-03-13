@@ -18,6 +18,10 @@
       {
         "command": "pixel-mav.showPanel",
         "title": "Pixel Mav: Show Panel"
+      },
+      {
+        "command": "pixel-mav.debugSimulate",
+        "title": "Pixel Mav: Debug — Simulate Agent Lifecycle"
       }
     ],
     "viewsContainers": {

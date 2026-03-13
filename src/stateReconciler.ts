@@ -31,9 +31,14 @@ export class StateReconciler {
 
   private current: ReconciledState = { status: 'idle', activeTool: null };
   private readonly onChange: (state: ReconciledState) => void;
+  private readonly onEvent?: (event: TranscriptEvent) => void;
 
-  constructor(onChange: (state: ReconciledState) => void) {
+  constructor(
+    onChange: (state: ReconciledState) => void,
+    onEvent?: (event: TranscriptEvent) => void,
+  ) {
     this.onChange = onChange;
+    this.onEvent = onEvent;
   }
 
   /**
@@ -44,6 +49,9 @@ export class StateReconciler {
     this.clearInactivity();
 
     if (events.length > 0) {
+      for (const e of events) {
+        this.onEvent?.(e);
+      }
       this.pendingEvents.push(...events);
       if (!this.reconcileTimer) {
         this.reconcileTimer = setTimeout(() => this.reconcile(), RECONCILE_MS);

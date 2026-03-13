@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { startGameLoop } from '../engine/gameLoop.ts';
-import { addCat, makeCat, removeCat, updateAllCats } from '../engine/catStore.ts';
+import { cats, updateAllCats } from '../engine/catStore.ts';
 import { Camera } from '../engine/renderer/camera.ts';
 import { Renderer } from '../engine/renderer/renderer.ts';
+import { postMessage } from '../vscodeApi.ts';
+import { CAT_WIDTH_PX, CAT_HEIGHT_PX } from '../constants.ts';
 
 /**
  * The main game canvas. Owns the Camera, Renderer, and GameLoop.
@@ -47,14 +49,6 @@ export function GameCanvas() {
 
     resizeCanvas();
 
-    // ── Phase 3: spawn test cats to verify entity loop ───
-    const TEST_CATS = [
-      makeCat('test-tabby',   5,  3, 'tabby'),
-      makeCat('test-tuxedo', 10,  5, 'tuxedo'),
-      makeCat('test-orange', 15,  8, 'orange'),
-    ];
-    for (const cat of TEST_CATS) addCat(cat);
-
     // Observe container for resize
     const observer = new ResizeObserver(resizeCanvas);
     observer.observe(container);
@@ -83,9 +77,31 @@ export function GameCanvas() {
       stop();
       observer.disconnect();
       canvas.removeEventListener('wheel', onWheel);
-      for (const cat of TEST_CATS) removeCat(cat.id);
     };
   }, [resizeCanvas]);
+
+  // ── Click: focus agent terminal ──────────────────────────
+  const onClick = useCallback((e: React.MouseEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const camera = cameraRef.current;
+    const worldPos = camera.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+
+    // Hit test: check if click is within any cat's bounding box
+    const halfW = CAT_WIDTH_PX / 2;
+    const halfH = CAT_HEIGHT_PX / 2;
+    for (const cat of cats.values()) {
+      if (
+        cat.agentId &&
+        worldPos.x >= cat.x - halfW && worldPos.x <= cat.x + halfW &&
+        worldPos.y >= cat.y - halfH && worldPos.y <= cat.y + halfH
+      ) {
+        postMessage({ type: 'focusCat', agentId: cat.agentId });
+        break;
+      }
+    }
+  }, []);
 
   // ── Mouse: down/move/up → pan ─────────────────────────────
   const onMouseDown = useCallback((e: React.MouseEvent) => {
@@ -135,6 +151,7 @@ export function GameCanvas() {
     >
       <canvas
         ref={canvasRef}
+        onClick={onClick}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}

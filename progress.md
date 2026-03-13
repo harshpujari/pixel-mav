@@ -55,18 +55,18 @@ _The hardest backend piece — triple-layer JSONL watching for cross-platform re
 
 ---
 
-## Phase 5 — IPC + Agent Lifecycle
+## Phase 5 — IPC + Agent Lifecycle ✓
 _Close the loop: Claude types → cat types. **This is the product.**_
 
-- [ ] `agentManager.ts`: detect Claude Code terminals, track lifecycle
-- [ ] Extension → Webview: `catSpawned`, `catDespawned`, `agentActive`, `agentIdle`, `agentPermission`
-- [ ] Webview → Extension: `focusCat`, `closeCat`
-- [ ] Webview message dispatcher → catStore updates
-- [ ] Cat walks to seat when agent becomes active, sits and types/reads
-- [ ] Cat returns to idle behaviors when agent becomes idle
-- [ ] Sub-agent support (Task tool → child cat with negative ID suffix)
-- [ ] `existingCats` message for webview reload recovery
-- [ ] **Milestone: the core interaction loop works end-to-end**
+- [x] `agentManager.ts`: detect Claude Code terminals, track lifecycle
+- [x] Extension → Webview: `catSpawned`, `catDespawned`, `agentActive`, `agentIdle`, `agentPermission`
+- [x] Webview → Extension: `focusCat`, `closeCat`
+- [x] Webview message dispatcher → catStore updates
+- [x] Cat walks to seat when agent becomes active, sits and types/reads
+- [x] Cat returns to idle behaviors when agent becomes idle
+- [x] Sub-agent support (Task tool → child cat with negative ID suffix)
+- [x] `existingCats` message for webview reload recovery
+- [x] **Milestone: the core interaction loop works end-to-end**
 
 ---
 

@@ -7,12 +7,13 @@ export type AgentStatus = 'active' | 'idle' | 'waiting';
 export interface AgentState {
   id: number;
   sessionId: string;
-  terminalRef: vscode.Terminal;
+  terminalRef: vscode.Terminal | null;
   status: AgentStatus;
   activeTool: string | null;
   breed: CatBreed;
   hueShift: number;
-  seatId: string | null;
+  seatCol: number;
+  seatRow: number;
   jsonlPath: string | null;
   parentId: number | null;
 }
@@ -22,7 +23,8 @@ export interface PersistedAgent {
   sessionId: string;
   breed: CatBreed;
   hueShift: number;
-  seatId: string | null;
+  seatCol: number;
+  seatRow: number;
 }
 
 // ── Transcript parsing (Phase 4) ────────────────────────────
@@ -37,3 +39,63 @@ export interface ReconciledState {
   status: AgentStatus;
   activeTool: string | null;
 }
+
+// ── IPC: Extension → Webview (Phase 5) ──────────────────────
+
+export interface CatSpawnedMessage {
+  type: 'catSpawned';
+  agentId: string;
+  breed: CatBreed;
+  hueShift: number;
+  seatCol: number;
+  seatRow: number;
+  isSubagent: boolean;
+  parentAgentId: string | null;
+}
+
+export interface CatDespawnedMessage {
+  type: 'catDespawned';
+  agentId: string;
+}
+
+export interface AgentActiveMessage {
+  type: 'agentActive';
+  agentId: string;
+  tool: string;
+  catState: 'type' | 'read' | 'wait';
+}
+
+export interface AgentIdleMessage {
+  type: 'agentIdle';
+  agentId: string;
+}
+
+export interface AgentPermissionMessage {
+  type: 'agentPermission';
+  agentId: string;
+  tool: string;
+}
+
+export interface ExistingCatsMessage {
+  type: 'existingCats';
+  cats: Array<{
+    agentId: string;
+    breed: CatBreed;
+    hueShift: number;
+    seatCol: number;
+    seatRow: number;
+    isSubagent: boolean;
+    parentAgentId: string | null;
+    status: AgentStatus;
+    activeTool: string | null;
+  }>;
+}
+
+export type ExtensionToWebviewMessage =
+  | CatSpawnedMessage
+  | CatDespawnedMessage
+  | AgentActiveMessage
+  | AgentIdleMessage
+  | AgentPermissionMessage
+  | ExistingCatsMessage
+  | { type: 'settingsLoaded'; soundEnabled: boolean };
