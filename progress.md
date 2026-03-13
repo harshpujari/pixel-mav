@@ -41,17 +41,17 @@ _Get one cat on screen with basic behaviors — proves the entity model works._
 
 ---
 
-## Phase 4 — Agent State Detection
+## Phase 4 — Agent State Detection ✓
 _The hardest backend piece — triple-layer JSONL watching for cross-platform reliability._
 
-- [ ] Locate Claude Code JSONL files (`~/.claude/projects/<hash>/<id>.jsonl`)
-- [ ] `transcriptWatcher.ts`: fs.watch + fs.watchFile + polling fallback
-- [ ] Partial-line buffering for split reads
-- [ ] `transcriptParser.ts`: JSONL → typed events (tool_use, tool_result, turn_duration)
-- [ ] `stateReconciler.ts`: 200ms event buffer → clean AgentState (ACTIVE/WAITING/IDLE)
-- [ ] Tool → cat state mapping (Write/Bash → type, Read/Grep → read, permission → wait)
-- [ ] 5s silence fallback for idle detection
-- [ ] Permission bubble trigger (7s after non-exempt tool start)
+- [x] Locate Claude Code JSONL files — `claudeProjectDir()` + `jsonlPath()` in `transcriptWatcher.ts`
+- [x] `transcriptWatcher.ts`: fs.watch + fs.watchFile + polling fallback (triple-layer)
+- [x] Partial-line buffering for split reads (buffer + split('\n') + keep incomplete tail)
+- [x] `transcriptParser.ts`: JSONL → typed events (tool_start, tool_result, turn_end)
+- [x] `stateReconciler.ts`: 200ms event buffer → clean ReconciledState (ACTIVE/WAITING/IDLE)
+- [x] Tool → cat state mapping — `toolToCatState()` (Write/Bash → type, Read/Grep → read, AskUser → wait)
+- [x] 5s silence fallback for idle detection (inactivity timer when no active tools)
+- [x] Permission bubble trigger (7s after non-exempt tool start; Task/Agent/AskUser exempt)
 
 ---
 
