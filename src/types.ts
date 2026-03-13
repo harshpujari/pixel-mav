@@ -24,3 +24,16 @@ export interface PersistedAgent {
   hueShift: number;
   seatId: string | null;
 }
+
+// ── Transcript parsing (Phase 4) ────────────────────────────
+
+export type TranscriptEvent =
+  | { kind: 'tool_start'; toolId: string; toolName: string }
+  | { kind: 'tool_result'; toolId: string }
+  | { kind: 'turn_end'; durationMs: number };
+
+/** Reconciled agent state emitted by StateReconciler. */
+export interface ReconciledState {
+  status: AgentStatus;
+  activeTool: string | null;
+}
