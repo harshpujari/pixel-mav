@@ -170,7 +170,7 @@ function startBfsWalk(cat: Cat, map: TileMap, speed: number): boolean {
   return true;
 }
 
-function randRange(min: number, max: number): number {
+export function randRange(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
 

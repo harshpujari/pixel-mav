@@ -1,5 +1,6 @@
-import { AGENT_IDLE_COOLDOWN_SEC, TILE_SIZE, WALK_SPEED } from './constants.ts';
+import { AGENT_IDLE_COOLDOWN_SEC, WALK_SPEED } from './constants.ts';
 import { addCat, cats, getCat, makeCat, removeCat } from './engine/catStore.ts';
+import { tileCenter } from './engine/movement.ts';
 import { findPath } from './engine/pathfinding.ts';
 import { randomWalkableTile, tileMap } from './environment/tileMap.ts';
 import type { CatBreed } from './types.ts';
@@ -28,8 +29,8 @@ export function dispatchMessage(msg: { type: string } & Record<string, unknown>)
       const spawn = randomWalkableTile(tileMap) ?? { col: seatCol, row: seatRow };
       cat.tileCol = spawn.col;
       cat.tileRow = spawn.row;
-      cat.x = spawn.col * TILE_SIZE + TILE_SIZE / 2;
-      cat.y = spawn.row * TILE_SIZE + TILE_SIZE / 2;
+      cat.x = tileCenter(spawn.col);
+      cat.y = tileCenter(spawn.row);
 
       addCat(cat);
       break;
@@ -48,29 +49,20 @@ export function dispatchMessage(msg: { type: string } & Record<string, unknown>)
       cat.activeTool = msg.tool as string;
       cat.targetWorkState = catState;
 
-      // If already at seat, enter work state immediately
-      if (cat.tileCol === cat.seatCol && cat.tileRow === cat.seatRow) {
+      // BFS-walk to seat; if already there (or unreachable), enter work state directly
+      const path = findPath(cat.tileCol, cat.tileRow, cat.seatCol, cat.seatRow, tileMap);
+      if (path.length > 0) {
+        cat.state = 'walk';
+        cat.path = path;
+        cat.moveProgress = 0;
+        cat.speed = WALK_SPEED;
+        cat.stateTimer = 0;
+        // On arrival, stateMachine.onArrival checks targetWorkState + seat position
+      } else {
         cat.state = catState;
         cat.stateTimer = 0;
         cat.frame = 0;
         cat.frameTimer = 0;
-      } else {
-        // Interrupt current behavior and BFS-walk to seat
-        const path = findPath(cat.tileCol, cat.tileRow, cat.seatCol, cat.seatRow, tileMap);
-        if (path.length > 0) {
-          cat.state = 'walk';
-          cat.path = path;
-          cat.moveProgress = 0;
-          cat.speed = WALK_SPEED;
-          cat.stateTimer = 0;
-          // On arrival, stateMachine.onArrival checks targetWorkState + seat position
-        } else {
-          // Already at seat or no path — enter work state directly
-          cat.state = catState;
-          cat.stateTimer = 0;
-          cat.frame = 0;
-          cat.frameTimer = 0;
-        }
       }
       break;
     }
@@ -139,8 +131,8 @@ export function dispatchMessage(msg: { type: string } & Record<string, unknown>)
         // Place restored cats at their seat (no spawn animation)
         cat.tileCol = data.seatCol;
         cat.tileRow = data.seatRow;
-        cat.x = data.seatCol * TILE_SIZE + TILE_SIZE / 2;
-        cat.y = data.seatRow * TILE_SIZE + TILE_SIZE / 2;
+        cat.x = tileCenter(data.seatCol);
+        cat.y = tileCenter(data.seatRow);
 
         // Restore current state
         if (data.status === 'active' && data.activeTool) {

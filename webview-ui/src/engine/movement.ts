@@ -39,7 +39,7 @@ export function advanceAlongPath(cat: Cat, dt: number): boolean {
   return false;
 }
 
-function tileCenter(idx: number): number {
+export function tileCenter(idx: number): number {
   return idx * TILE_SIZE + TILE_SIZE / 2;
 }
 

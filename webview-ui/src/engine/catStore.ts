@@ -1,12 +1,12 @@
 import {
   IDLE_MIN_SEC,
   IDLE_MAX_SEC,
-  TILE_SIZE,
   WALK_SPEED,
 } from '../constants.ts';
 import { tileMap } from '../environment/tileMap.ts';
 import type { Cat, CatBreed } from '../types.ts';
-import { updateCat } from './stateMachine.ts';
+import { tileCenter } from './movement.ts';
+import { randRange, updateCat } from './stateMachine.ts';
 
 // ── Flat entity store ─────────────────────────────────────────
 // Module-level singleton Map — never triggers React re-renders.
@@ -55,8 +55,8 @@ export function makeCat(
     breed,
     hueShift: 0,
 
-    x: tileCol * TILE_SIZE + TILE_SIZE / 2,
-    y: tileRow * TILE_SIZE + TILE_SIZE / 2,
+    x: tileCenter(tileCol),
+    y: tileCenter(tileRow),
     tileCol,
     tileRow,
 
@@ -83,6 +83,3 @@ export function makeCat(
   };
 }
 
-function randRange(min: number, max: number): number {
-  return min + Math.random() * (max - min);
-}
