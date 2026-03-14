@@ -1,11 +1,10 @@
 import {
-  DEFAULT_GRID_COLS,
-  DEFAULT_GRID_ROWS,
   IDLE_MIN_SEC,
   IDLE_MAX_SEC,
   TILE_SIZE,
   WALK_SPEED,
 } from '../constants.ts';
+import { tileMap } from '../environment/tileMap.ts';
 import type { Cat, CatBreed } from '../types.ts';
 import { updateCat } from './stateMachine.ts';
 
@@ -29,7 +28,7 @@ export function getCat(id: string): Cat | undefined {
 /** Advance all cats by `dt` seconds. Called once per game loop frame. */
 export function updateAllCats(dt: number): void {
   for (const cat of cats.values()) {
-    updateCat(cat, dt, DEFAULT_GRID_COLS, DEFAULT_GRID_ROWS);
+    updateCat(cat, dt, tileMap);
   }
 }
 

@@ -11,7 +11,6 @@ import {
   STRETCH_FRAME_SEC,
   STRETCH_MAX_SEC,
   STRETCH_MIN_SEC,
-  TILE_SIZE,
   TYPE_FRAME_SEC,
   WALK_FRAME_SEC,
   WALK_SPEED,
@@ -19,24 +18,28 @@ import {
   ZOOMIES_MIN_SEC,
   ZOOMIES_SPEED,
 } from '../constants.ts';
-import type { Cat, CatState, Direction, TileCoord } from '../types.ts';
+import type { TileMap } from '../environment/tileMap.ts';
+import { randomWalkableTile } from '../environment/tileMap.ts';
+import type { Cat, CatState } from '../types.ts';
+import { advanceAlongPath } from './movement.ts';
+import { findPath } from './pathfinding.ts';
 
 // ── Public entry point ────────────────────────────────────────
 
 /**
  * Advance a single cat by `dt` seconds.
- * Pure function: reads/writes only the passed `cat` object.
+ * Pure function: reads/writes only the passed `cat` object + reads the tileMap.
  * No store or renderer imports — keeps this testable in isolation.
  */
-export function updateCat(cat: Cat, dt: number, gridCols: number, gridRows: number): void {
+export function updateCat(cat: Cat, dt: number, map: TileMap): void {
   cat.stateTimer += dt;
   advanceAnimation(cat, dt);
 
   switch (cat.state) {
-    case 'idle':    updateIdle(cat, gridCols, gridRows); break;
+    case 'idle':    updateIdle(cat, map); break;
     case 'walk':
     case 'wander':
-    case 'zoomies': updateMovement(cat, dt, gridCols, gridRows); break;
+    case 'zoomies': updateMovement(cat, dt, map); break;
     case 'sleep':
     case 'groom':
     case 'stretch': updateTimedBehavior(cat); break;
@@ -48,9 +51,9 @@ export function updateCat(cat: Cat, dt: number, gridCols: number, gridRows: numb
 
 // ── State updates ─────────────────────────────────────────────
 
-function updateIdle(cat: Cat, gridCols: number, gridRows: number): void {
+function updateIdle(cat: Cat, map: TileMap): void {
   if (cat.stateTimer >= cat.stateDuration) {
-    pickIdleBehavior(cat, gridCols, gridRows);
+    pickIdleBehavior(cat, map);
   }
 }
 
@@ -60,44 +63,14 @@ function updateTimedBehavior(cat: Cat): void {
   }
 }
 
-function updateMovement(cat: Cat, dt: number, gridCols: number, gridRows: number): void {
-  if (cat.path.length === 0) {
-    onArrival(cat, gridCols, gridRows);
-    return;
-  }
-
-  const next = cat.path[0];
-
-  // Direction toward next tile
-  cat.direction = tileDirection(cat.tileCol, cat.tileRow, next.col, next.row);
-
-  // Advance progress (clamped to 1 — no multi-tile skip needed at these speeds)
-  cat.moveProgress = Math.min(cat.moveProgress + cat.speed * dt, 1);
-
-  // Interpolate world position between current tile center and next tile center
-  const fromX = tileCenter(cat.tileCol);
-  const fromY = tileCenter(cat.tileRow);
-  cat.x = fromX + (tileCenter(next.col) - fromX) * cat.moveProgress;
-  cat.y = fromY + (tileCenter(next.row) - fromY) * cat.moveProgress;
-
-  if (cat.moveProgress >= 1) {
-    // Snap to arrived tile
-    cat.tileCol = next.col;
-    cat.tileRow = next.row;
-    cat.x = tileCenter(cat.tileCol);
-    cat.y = tileCenter(cat.tileRow);
-    cat.path.shift();
-    cat.moveProgress = 0;
-
-    if (cat.path.length === 0) {
-      onArrival(cat, gridCols, gridRows);
-    }
-  }
+function updateMovement(cat: Cat, dt: number, map: TileMap): void {
+  const arrived = advanceAlongPath(cat, dt);
+  if (arrived) onArrival(cat, map);
 }
 
 // ── Arrival logic ─────────────────────────────────────────────
 
-function onArrival(cat: Cat, gridCols: number, gridRows: number): void {
+function onArrival(cat: Cat, map: TileMap): void {
   switch (cat.state) {
     case 'walk':
       // Agent-driven: if cat arrived at its seat with a pending work state, start working
@@ -118,9 +91,8 @@ function onArrival(cat: Cat, gridCols: number, gridRows: number): void {
       toIdle(cat);
       break;
     case 'zoomies':
-      // Keep zooming if duration hasn't elapsed; otherwise idle.
       if (cat.stateTimer < cat.stateDuration) {
-        startWalk(cat, randomTile(gridCols, gridRows), ZOOMIES_SPEED);
+        startBfsWalk(cat, map, ZOOMIES_SPEED);
       } else {
         toIdle(cat);
       }
@@ -132,7 +104,7 @@ function onArrival(cat: Cat, gridCols: number, gridRows: number): void {
 
 // ── Idle behavior picker (weighted random) ────────────────────
 
-function pickIdleBehavior(cat: Cat, gridCols: number, gridRows: number): void {
+function pickIdleBehavior(cat: Cat, map: TileMap): void {
   const r = Math.random();
   if (r < 0.40) {
     toTimed(cat, 'sleep', SLEEP_MIN_SEC, SLEEP_MAX_SEC);
@@ -141,16 +113,22 @@ function pickIdleBehavior(cat: Cat, gridCols: number, gridRows: number): void {
   } else if (r < 0.70) {
     toTimed(cat, 'stretch', STRETCH_MIN_SEC, STRETCH_MAX_SEC);
   } else if (r < 0.90) {
-    // wander (20%): walk to a random tile
-    startWalk(cat, randomTile(gridCols, gridRows), WALK_SPEED);
-    cat.state = 'wander';
-    cat.stateTimer = 0;
+    // wander (20%): BFS walk to a random walkable tile
+    if (startBfsWalk(cat, map, WALK_SPEED)) {
+      cat.state = 'wander';
+      cat.stateTimer = 0;
+    } else {
+      toIdle(cat); // fallback if no path found
+    }
   } else {
     // zoomies (10%): fast multi-destination sprint with a time budget
-    startWalk(cat, randomTile(gridCols, gridRows), ZOOMIES_SPEED);
-    cat.state = 'zoomies';
-    cat.stateTimer = 0;
-    cat.stateDuration = randRange(ZOOMIES_MIN_SEC, ZOOMIES_MAX_SEC);
+    if (startBfsWalk(cat, map, ZOOMIES_SPEED)) {
+      cat.state = 'zoomies';
+      cat.stateTimer = 0;
+      cat.stateDuration = randRange(ZOOMIES_MIN_SEC, ZOOMIES_MAX_SEC);
+    } else {
+      toIdle(cat);
+    }
   }
 }
 
@@ -173,34 +151,23 @@ function toTimed(cat: Cat, state: CatState, minSec: number, maxSec: number): voi
   cat.frameTimer = 0;
 }
 
-function startWalk(cat: Cat, dest: TileCoord, speed: number): void {
-  cat.path = [dest];
+/**
+ * Pick a random walkable destination and BFS to it.
+ * Returns true if a path was found and walking started.
+ */
+function startBfsWalk(cat: Cat, map: TileMap, speed: number): boolean {
+  const dest = randomWalkableTile(map);
+  if (!dest) return false;
+
+  const path = findPath(cat.tileCol, cat.tileRow, dest.col, dest.row, map);
+  if (path.length === 0 && (cat.tileCol !== dest.col || cat.tileRow !== dest.row)) {
+    return false; // destination is unreachable
+  }
+
+  cat.path = path;
   cat.speed = speed;
   cat.moveProgress = 0;
-}
-
-function randomTile(gridCols: number, gridRows: number): TileCoord {
-  return {
-    col: Math.floor(Math.random() * gridCols),
-    row: Math.floor(Math.random() * gridRows),
-  };
-}
-
-function tileCenter(tileIndex: number): number {
-  return tileIndex * TILE_SIZE + TILE_SIZE / 2;
-}
-
-function tileDirection(
-  fromCol: number, fromRow: number,
-  toCol: number, toRow: number,
-): Direction {
-  const dc = toCol - fromCol;
-  const dr = toRow - fromRow;
-  // Horizontal movement takes priority when both axes differ
-  if (Math.abs(dc) >= Math.abs(dr)) {
-    return dc > 0 ? 'right' : 'left';
-  }
-  return dr > 0 ? 'down' : 'up';
+  return true;
 }
 
 function randRange(min: number, max: number): number {
@@ -220,7 +187,6 @@ const FRAME_SPEED: Partial<Record<CatState, number>> = {
   stretch: STRETCH_FRAME_SEC,
 };
 
-// Number of distinct frames in each animation cycle
 const FRAME_COUNT: Partial<Record<CatState, number>> = {
   walk:    4,
   wander:  4,

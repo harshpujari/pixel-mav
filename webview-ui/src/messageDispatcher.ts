@@ -1,5 +1,7 @@
-import { AGENT_IDLE_COOLDOWN_SEC, DEFAULT_GRID_COLS, DEFAULT_GRID_ROWS, TILE_SIZE, WALK_SPEED } from './constants.ts';
+import { AGENT_IDLE_COOLDOWN_SEC, TILE_SIZE, WALK_SPEED } from './constants.ts';
 import { addCat, cats, getCat, makeCat, removeCat } from './engine/catStore.ts';
+import { findPath } from './engine/pathfinding.ts';
+import { randomWalkableTile, tileMap } from './environment/tileMap.ts';
 import type { CatBreed } from './types.ts';
 
 /**
@@ -22,13 +24,12 @@ export function dispatchMessage(msg: { type: string } & Record<string, unknown>)
       cat.isSubagent = msg.isSubagent as boolean;
       cat.parentAgentId = msg.parentAgentId as string | null;
 
-      // Spawn at a random position — cat will walk to seat when agent becomes active
-      const spawnCol = Math.floor(Math.random() * DEFAULT_GRID_COLS);
-      const spawnRow = Math.floor(Math.random() * DEFAULT_GRID_ROWS);
-      cat.tileCol = spawnCol;
-      cat.tileRow = spawnRow;
-      cat.x = spawnCol * TILE_SIZE + TILE_SIZE / 2;
-      cat.y = spawnRow * TILE_SIZE + TILE_SIZE / 2;
+      // Spawn at a random walkable tile — cat will walk to seat when agent becomes active
+      const spawn = randomWalkableTile(tileMap) ?? { col: seatCol, row: seatRow };
+      cat.tileCol = spawn.col;
+      cat.tileRow = spawn.row;
+      cat.x = spawn.col * TILE_SIZE + TILE_SIZE / 2;
+      cat.y = spawn.row * TILE_SIZE + TILE_SIZE / 2;
 
       addCat(cat);
       break;
@@ -54,13 +55,22 @@ export function dispatchMessage(msg: { type: string } & Record<string, unknown>)
         cat.frame = 0;
         cat.frameTimer = 0;
       } else {
-        // Interrupt current behavior and walk to seat
-        cat.state = 'walk';
-        cat.path = [{ col: cat.seatCol, row: cat.seatRow }];
-        cat.moveProgress = 0;
-        cat.speed = WALK_SPEED;
-        cat.stateTimer = 0;
-        // On arrival, stateMachine.onArrival checks targetWorkState + seat position
+        // Interrupt current behavior and BFS-walk to seat
+        const path = findPath(cat.tileCol, cat.tileRow, cat.seatCol, cat.seatRow, tileMap);
+        if (path.length > 0) {
+          cat.state = 'walk';
+          cat.path = path;
+          cat.moveProgress = 0;
+          cat.speed = WALK_SPEED;
+          cat.stateTimer = 0;
+          // On arrival, stateMachine.onArrival checks targetWorkState + seat position
+        } else {
+          // Already at seat or no path — enter work state directly
+          cat.state = catState;
+          cat.stateTimer = 0;
+          cat.frame = 0;
+          cat.frameTimer = 0;
+        }
       }
       break;
     }
