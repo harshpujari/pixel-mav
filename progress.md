@@ -70,16 +70,17 @@ _Close the loop: Claude types → cat types. **This is the product.**_
 
 ---
 
-## Phase 6 — Tile Map + BFS Pathfinding
+## Phase 6 — Tile Map + BFS Pathfinding ✓
 _Replace placeholder grid with a real tile map. Cats walk real paths._
 
-- [ ] 2D tile grid: VOID / FLOOR / WALL / SUNNY types
-- [ ] Floor tile rendering (colorizable patterns)
-- [ ] Wall auto-tiling (4-bit bitmask → 16 variants)
-- [ ] Walkability check (tile type + blocked tiles from furniture)
-- [ ] BFS pathfinding (4-connected, visited set, parent map)
-- [ ] `movement.ts`: path following with `moveProgress` interpolation (3 tiles/sec)
-- [ ] Walk animation plays during movement
+- [x] 2D tile grid: VOID / FLOOR / WALL / SUNNY types — `environment/types.ts`
+- [x] Floor tile rendering (warm wood checkerboard + sunny golden overlay) — `engine/renderer/tileRenderer.ts`
+- [x] Wall auto-tiling (4-bit bitmask → edge highlights on exposed sides) — `tileRenderer.ts` + `tileMap.ts:wallBitmask()`
+- [x] Walkability check (tile type + optional blocked set) — `tileMap.ts:isWalkable()`
+- [x] BFS pathfinding (4-connected, array-queue, bitwise keys) — `engine/pathfinding.ts`
+- [x] `movement.ts`: path following with `moveProgress` interpolation (3 tiles/sec) — `engine/movement.ts`
+- [x] Walk animation plays during movement (stateMachine uses BFS paths for wander/zoomies)
+- [x] Cats spawn on walkable tiles, BFS-walk to seat on agent activation
 
 ---
 
