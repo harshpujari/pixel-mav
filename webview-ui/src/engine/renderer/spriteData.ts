@@ -200,20 +200,8 @@ const DOWN_TYPE_B = parse([
   '..333333..',
 ]);
 
-const DOWN_READ = parse([
-  '..22..22..',
-  '.26211262.',
-  '.11111111.',
-  '.14111411.',
-  '.11151111.',
-  '.11333111.',
-  '.11111111.',
-  '.11111111.',
-  '.11333111.',
-  '.11111111.',
-  '..111111..',
-  '..333333..',
-]);
+// DOWN_READ reuses DOWN_SIT — blink overlay differentiates the read state at render time
+const DOWN_READ = DOWN_SIT;
 
 // ── Row 1: Up-facing (back view) ────────────────────────────
 
