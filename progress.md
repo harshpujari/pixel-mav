@@ -128,12 +128,12 @@ _Multi-cat interactions that emerge from proximity._
 
 ---
 
-## Phase 10 — All Breeds + Animations
-- [ ] All 6 breeds: Tabby, Tuxedo, Calico, Siamese, Void, Orange
-- [ ] Diverse palette picker (round-robin least-used breed)
-- [ ] Hue shift (≥45°) for agents beyond 6
-- [ ] Sub-agents inherit parent breed
-- [ ] All animation states working per breed
+## Phase 10 — All Breeds + Animations ✓
+- [x] All 6 breeds: Tabby, Tuxedo, Calico, Siamese, Void, Orange — `BREED_PALETTE` in `spriteData.ts`
+- [x] Diverse palette picker (round-robin least-used breed) — `pickBreed()` in `agentManager.ts`
+- [x] Hue shift (≥45°) for agents beyond 6 — `shiftHue()` + `getBreedColors()` in `spriteData.ts`, applied via `spriteCache.ts`
+- [x] Sub-agents inherit parent breed — `spawnSubAgent()` copies parent breed + hueShift
+- [x] All animation states working per breed — color index bitmaps resolve via breed palette
 
 ---
 
