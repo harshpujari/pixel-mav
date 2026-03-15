@@ -137,12 +137,12 @@ _Multi-cat interactions that emerge from proximity._
 
 ---
 
-## Phase 11 — Spawn/Despawn Effects
-- [ ] `effectRenderer.ts`: particle system (position, velocity, lifetime, alpha)
-- [ ] Spawn: particle burst (paw prints / sparkles) + cat fade in over 0.4s
-- [ ] Despawn: yawn → curl → fade out over 0.5s + paw-print scatter
-- [ ] Matrix effect for sub-agent spawn/despawn (green character rain)
-- [ ] Restored agents skip spawn effect
+## Phase 11 — Spawn/Despawn Effects ✓
+- [x] `effectRenderer.ts`: particle system (position, velocity, lifetime, alpha) — `engine/renderer/effectRenderer.ts`
+- [x] Spawn: sparkle burst + cat fade in over 0.4s — `emitSpawnEffect()` + `SPAWN_DURATION`
+- [x] Despawn: stretch (yawn) → sleep (curl) → fade out over 0.5s + paw-print scatter — `emitDespawnEffect()` + `DESPAWN_DURATION`
+- [x] Matrix effect for sub-agent spawn/despawn (green character rain) — `emitMatrix()` with per-column falling chars
+- [x] Restored agents skip spawn effect — `existingCats` handler doesn't set `spawnEffect`
 
 ---
 
