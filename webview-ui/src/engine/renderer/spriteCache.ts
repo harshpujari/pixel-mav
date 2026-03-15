@@ -2,7 +2,7 @@ import type { CatBreed } from '../../types.ts';
 import {
   SPRITE_W,
   SPRITE_H,
-  BREED_PALETTE,
+  getBreedColors,
   getFrameBitmap,
   resolveColor,
 } from './spriteData.ts';
@@ -26,6 +26,7 @@ export function getFrame(
   col: number,
   flipH: boolean,
   zoom: number,
+  hueShift: number = 0,
 ): HTMLCanvasElement | null {
   // Flush cache on zoom change (quantised to avoid float key drift)
   const zoomKey = Math.round(zoom * 100);
@@ -34,14 +35,14 @@ export function getFrame(
     cachedZoom = zoom;
   }
 
-  const key = `${breed}-${row}-${col}-${flipH ? 1 : 0}`;
+  const key = `${breed}-${hueShift}-${row}-${col}-${flipH ? 1 : 0}`;
   const cached = cache.get(key);
   if (cached) return cached;
 
   const bitmap = getFrameBitmap(row, col);
   if (!bitmap) return null;
 
-  const colors = BREED_PALETTE[breed];
+  const colors = getBreedColors(breed, hueShift);
   const w = Math.round(SPRITE_W * zoom);
   const h = Math.round(SPRITE_H * zoom);
 

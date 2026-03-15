@@ -88,6 +88,61 @@ export function resolveColor(index: number, colors: BreedColors): string {
   }
 }
 
+/**
+ * Get breed colours with optional hue rotation.
+ * Used for >6 agents where breeds repeat with shifted palettes.
+ */
+export function getBreedColors(breed: CatBreed, hueShift: number): BreedColors {
+  const base = BREED_PALETTE[breed];
+  if (hueShift === 0) return base;
+  return {
+    body:     shiftHue(base.body, hueShift),
+    dark:     shiftHue(base.dark, hueShift),
+    light:    shiftHue(base.light, hueShift),
+    eye:      shiftHue(base.eye, hueShift),
+    nose:     shiftHue(base.nose, hueShift),
+    earInner: shiftHue(base.earInner, hueShift),
+  };
+}
+
+/** Rotate the hue of a hex colour by `degrees`. Achromatic colours pass through. */
+function shiftHue(hex: string, degrees: number): string {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return hex; // achromatic — no hue to shift
+
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h: number;
+  if (max === r)      h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+  else if (max === g) h = ((b - r) / d + 2) / 6;
+  else                h = ((r - g) / d + 4) / 6;
+
+  h = ((h + degrees / 360) % 1 + 1) % 1; // shift + wrap to [0,1)
+
+  const hue2rgb = (p: number, q: number, t: number) => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const rr = Math.round(hue2rgb(p, q, h + 1 / 3) * 255);
+  const gg = Math.round(hue2rgb(p, q, h) * 255);
+  const bb = Math.round(hue2rgb(p, q, h - 1 / 3) * 255);
+
+  return '#' + ((1 << 24) | (rr << 16) | (gg << 8) | bb).toString(16).slice(1);
+}
+
 // ── Bitmap data ─────────────────────────────────────────────
 // Colour indices: 0=transparent  1=body  2=dark  3=light  4=eye  5=nose  6=earInner
 // Each frame: 10 wide × 12 tall, encoded as strings for readability.

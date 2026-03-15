@@ -8,7 +8,7 @@ import {
   SITTING_OFFSET,
   ANIM_DEFS,
   DIR_ROW,
-  BREED_PALETTE,
+  getBreedColors,
 } from './spriteData.ts';
 
 // ── State indicator colours ──────────────────────────────────
@@ -63,7 +63,7 @@ function drawCat(
     : DIR_ROW[cat.direction];
   const flipH = cat.direction === 'left';
 
-  const frame = getFrame(cat.breed, row, col, flipH, zoom);
+  const frame = getFrame(cat.breed, row, col, flipH, zoom, cat.hueShift);
   if (!frame) return;
 
   // Position: sprite centered on cat world position
@@ -82,7 +82,7 @@ function drawCat(
     (cat.state === 'read' && cat.frame === 1) ||
     (cat.state === 'idle' && cat.direction === 'down' && cat.blinkTimer <= 0);
   if (shouldBlink) {
-    drawBlinkOverlay(ctx, dx, dy, zoom, cat.breed, flipH);
+    drawBlinkOverlay(ctx, dx, dy, zoom, cat.breed, cat.hueShift, flipH);
   }
 
   // State dot
@@ -117,12 +117,13 @@ function drawBlinkOverlay(
   dy: number,
   zoom: number,
   breed: Cat['breed'],
+  hueShift: number,
   flipH: boolean,
 ): void {
   // Eyes are at row 3, cols 2 and 6 in the down-facing read bitmap
   const eyeRow = 3;
   const eyeCols = [2, 6];
-  ctx.fillStyle = BREED_PALETTE[breed].body;
+  ctx.fillStyle = getBreedColors(breed, hueShift).body;
   for (const ec of eyeCols) {
     const c = flipH ? (SPRITE_W - 1 - ec) : ec;
     const px = Math.round(c * zoom);

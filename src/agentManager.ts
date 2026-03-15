@@ -130,10 +130,7 @@ export class AgentManager {
     if (this.terminalToAgent.has(terminal)) return;
 
     const id = this.nextId++;
-    const breed = this.pickBreed();
-    const hueShift = this.breedIndex > BREEDS.length
-      ? 45 * Math.ceil(this.breedIndex / BREEDS.length)
-      : 0;
+    const { breed, hueShift } = this.pickBreed();
     const seat = this.pickSeat();
 
     const agent: AgentState = {
@@ -364,10 +361,34 @@ export class AgentManager {
 
   // ── Breed + seat assignment ──────────────────────────────
 
-  private pickBreed(): CatBreed {
-    const breed = BREEDS[this.breedIndex % BREEDS.length];
+  /**
+   * Pick the least-used breed among active agents.
+   * Ties broken by round-robin (breedIndex). Beyond 6 agents,
+   * breeds repeat with a hue shift of 45° per duplicate.
+   */
+  private pickBreed(): { breed: CatBreed; hueShift: number } {
+    // Count active non-sub-agent cats per breed
+    const counts = new Map<CatBreed, number>();
+    for (const b of BREEDS) counts.set(b, 0);
+    for (const agent of this.agents.values()) {
+      if (agent.parentId !== null) continue;
+      counts.set(agent.breed, (counts.get(agent.breed) ?? 0) + 1);
+    }
+
+    // Find the minimum usage count
+    let minCount = Infinity;
+    for (const c of counts.values()) {
+      if (c < minCount) minCount = c;
+    }
+
+    // Among breeds at minimum count, rotate via breedIndex
+    const candidates = BREEDS.filter(b => (counts.get(b) ?? 0) === minCount);
+    const breed = candidates[this.breedIndex % candidates.length];
     this.breedIndex++;
-    return breed;
+
+    // Hue shift: 45° per existing agent with the same breed
+    const hueShift = minCount > 0 ? minCount * 45 : 0;
+    return { breed, hueShift };
   }
 
   /**
