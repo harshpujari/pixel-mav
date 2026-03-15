@@ -71,6 +71,7 @@ export function makeCat(
     direction: 'down',
     frame: 0,
     frameTimer: 0,
+    blinkTimer: randRange(2, 5),
 
     socialCooldown: 0,
 

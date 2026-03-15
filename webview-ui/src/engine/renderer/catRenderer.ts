@@ -72,8 +72,11 @@ function drawCat(
 
   ctx.drawImage(frame, dx, dy);
 
-  // Blink overlay for 'read' state (frame 1 = eyes closed)
-  if (cat.state === 'read' && cat.frame === 1) {
+  // Blink overlay: read state (frame 1) or idle blink timer
+  const shouldBlink =
+    (cat.state === 'read' && cat.frame === 1) ||
+    (cat.state === 'idle' && cat.direction === 'down' && cat.blinkTimer <= 0);
+  if (shouldBlink) {
     drawBlinkOverlay(ctx, dx, dy, zoom, cat.breed, flipH);
   }
 

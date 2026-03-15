@@ -52,6 +52,7 @@ export interface Cat {
   direction: Direction;
   frame: number;
   frameTimer: number;   // seconds since last frame advance
+  blinkTimer: number;   // countdown to next blink; ≤0 = currently blinking
 
   // Social (Phase 9)
   socialCooldown: number;

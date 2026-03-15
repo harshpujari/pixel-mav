@@ -34,6 +34,7 @@ import { findPath } from './pathfinding.ts';
 export function updateCat(cat: Cat, dt: number, map: TileMap): void {
   cat.stateTimer += dt;
   advanceAnimation(cat, dt);
+  updateBlink(cat, dt);
 
   switch (cat.state) {
     case 'idle':    updateIdle(cat, map); break;
@@ -129,6 +130,19 @@ function pickIdleBehavior(cat: Cat, map: TileMap): void {
     } else {
       toIdle(cat);
     }
+  }
+}
+
+// ── Blink ────────────────────────────────────────────────────
+// Timer counts down → goes negative for 0.12s (blinking) → resets.
+// Renderer checks `cat.blinkTimer <= 0` to show the blink overlay.
+
+const BLINK_DURATION = 0.12;
+
+function updateBlink(cat: Cat, dt: number): void {
+  cat.blinkTimer -= dt;
+  if (cat.blinkTimer <= -BLINK_DURATION) {
+    cat.blinkTimer = randRange(2.5, 5);
   }
 }
 
