@@ -3,6 +3,7 @@ import { addCat, cats, getCat, makeCat, removeCat } from './engine/catStore.ts';
 import { tileCenter } from './engine/movement.ts';
 import { findPath } from './engine/pathfinding.ts';
 import { emitDespawnEffect, emitSpawnEffect } from './engine/renderer/effectRenderer.ts';
+import { getBlockedTiles, setDeskActiveBySeat } from './environment/furnitureStore.ts';
 import { randomWalkableTile, tileMap } from './environment/tileMap.ts';
 import type { CatBreed } from './types.ts';
 
@@ -27,7 +28,7 @@ export function dispatchMessage(msg: { type: string } & Record<string, unknown>)
       cat.parentAgentId = msg.parentAgentId as string | null;
 
       // Spawn at a random walkable tile — cat will walk to seat when agent becomes active
-      const spawn = randomWalkableTile(tileMap) ?? { col: seatCol, row: seatRow };
+      const spawn = randomWalkableTile(tileMap, getBlockedTiles()) ?? { col: seatCol, row: seatRow };
       cat.tileCol = spawn.col;
       cat.tileRow = spawn.row;
       cat.x = tileCenter(spawn.col);
@@ -45,6 +46,9 @@ export function dispatchMessage(msg: { type: string } & Record<string, unknown>)
     case 'catDespawned': {
       const cat = getCat(`agent-${msg.agentId as string}`);
       if (!cat) break;
+
+      // Toggle desk monitor off
+      setDeskActiveBySeat(cat.seatCol, cat.seatRow, false);
 
       // Start despawn effect — cat fades out over DESPAWN_DURATION then gets removed
       cat.despawnEffect = true;
@@ -67,8 +71,12 @@ export function dispatchMessage(msg: { type: string } & Record<string, unknown>)
       cat.activeTool = msg.tool as string;
       cat.targetWorkState = catState;
 
+      // Toggle desk monitor on
+      setDeskActiveBySeat(cat.seatCol, cat.seatRow, true);
+
       // BFS-walk to seat; if already there (or unreachable), enter work state directly
-      const path = findPath(cat.tileCol, cat.tileRow, cat.seatCol, cat.seatRow, tileMap);
+      const blocked = getBlockedTiles();
+      const path = findPath(cat.tileCol, cat.tileRow, cat.seatCol, cat.seatRow, tileMap, blocked);
       if (path.length > 0) {
         cat.state = 'walk';
         cat.path = path;
@@ -88,6 +96,9 @@ export function dispatchMessage(msg: { type: string } & Record<string, unknown>)
     case 'agentIdle': {
       const cat = getCat(`agent-${msg.agentId as string}`);
       if (!cat || cat.despawnEffect) break;
+
+      // Toggle desk monitor off
+      setDeskActiveBySeat(cat.seatCol, cat.seatRow, false);
 
       cat.activeTool = null;
       cat.targetWorkState = null;

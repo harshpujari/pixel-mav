@@ -5,6 +5,7 @@ import {
   SPAWN_DURATION,
   WALK_SPEED,
 } from '../constants.ts';
+import { getBlockedTiles } from '../environment/furnitureStore.ts';
 import { tileMap } from '../environment/tileMap.ts';
 import type { Cat, CatBreed } from '../types.ts';
 import { tileCenter } from './movement.ts';
@@ -32,6 +33,7 @@ export function getCat(id: string): Cat | undefined {
 export function updateAllCats(dt: number): void {
   updateParticles(dt);
 
+  const blocked = getBlockedTiles();
   const toRemove: string[] = [];
   for (const cat of cats.values()) {
     // Spawn fade-in
@@ -56,7 +58,7 @@ export function updateAllCats(dt: number): void {
       continue; // skip state machine during despawn
     }
 
-    updateCat(cat, dt, tileMap, cats);
+    updateCat(cat, dt, tileMap, cats, blocked);
   }
 
   for (const id of toRemove) removeCat(id);

@@ -1,7 +1,11 @@
 import { tileMap } from '../../environment/tileMap.ts';
-import { drawCats } from './catRenderer.ts';
+import { furniture, furnitureSortY } from '../../environment/furnitureStore.ts';
+import { cats } from '../catStore.ts';
+import { drawSingleCat } from './catRenderer.ts';
+import { drawFurnitureItem } from './furnitureRenderer.ts';
 import { drawParticles } from './effectRenderer.ts';
 import { drawTiles } from './tileRenderer.ts';
+import { SPRITE_H } from './spriteData.ts';
 import type { Camera } from './camera.ts';
 
 /**
@@ -31,8 +35,26 @@ export class Renderer {
     // ── Tiles ─────────────────────────────────────────────
     drawTiles(ctx, tileMap, offsetX, offsetY, zoom);
 
-    // ── Cats ──────────────────────────────────────────────
-    drawCats(ctx, offsetX, offsetY, zoom);
+    // ── Z-sorted entities (furniture + cats interleaved) ──
+    const items: Array<{ sortY: number; draw: () => void }> = [];
+
+    for (const item of furniture.values()) {
+      const sy = furnitureSortY(item);
+      items.push({
+        sortY: sy,
+        draw: () => drawFurnitureItem(ctx, item, offsetX, offsetY, zoom),
+      });
+    }
+
+    for (const cat of cats.values()) {
+      items.push({
+        sortY: cat.y + SPRITE_H / 2,
+        draw: () => drawSingleCat(ctx, cat, offsetX, offsetY, zoom),
+      });
+    }
+
+    items.sort((a, b) => a.sortY - b.sortY);
+    for (const item of items) item.draw();
 
     // ── Effects (particles on top) ───────────────────
     drawParticles(ctx, offsetX, offsetY, zoom);

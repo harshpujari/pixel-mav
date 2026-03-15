@@ -39,7 +39,10 @@ export function isWalkable(
  * Pick a random walkable tile. For wander, prefers SUNNY tiles (30% chance).
  * Returns null if no walkable tiles exist (shouldn't happen with a valid map).
  */
-export function randomWalkableTile(map: TileMap): { col: number; row: number } | null {
+export function randomWalkableTile(
+  map: TileMap,
+  blocked?: Set<string>,
+): { col: number; row: number } | null {
   const walkable: { col: number; row: number }[] = [];
   const sunny: { col: number; row: number }[] = [];
 
@@ -47,6 +50,7 @@ export function randomWalkableTile(map: TileMap): { col: number; row: number } |
     for (let c = 0; c < map.cols; c++) {
       const t = map.tiles[r * map.cols + c];
       if (t === TileType.FLOOR || t === TileType.SUNNY) {
+        if (blocked?.has(`${c},${r}`)) continue;
         walkable.push({ col: c, row: r });
         if (t === TileType.SUNNY) sunny.push({ col: c, row: r });
       }

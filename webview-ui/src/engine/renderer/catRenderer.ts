@@ -42,13 +42,13 @@ export function drawCats(
   // Z-sort by Y (bottom-edge; constant SPRITE_H means y-sort is equivalent)
   const sorted = [...cats.values()].sort((a, b) => a.y - b.y);
   for (const cat of sorted) {
-    drawCat(ctx, cat, offsetX, offsetY, zoom);
+    drawSingleCat(ctx, cat, offsetX, offsetY, zoom);
   }
 }
 
 // ── Per-cat drawing ──────────────────────────────────────────
 
-function drawCat(
+export function drawSingleCat(
   ctx: CanvasRenderingContext2D,
   cat: Cat,
   offsetX: number,

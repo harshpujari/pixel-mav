@@ -41,6 +41,7 @@ export function updateCat(
   dt: number,
   map: TileMap,
   allCats: ReadonlyMap<string, Cat>,
+  blocked?: Set<string>,
 ): void {
   cat.stateTimer += dt;
   if (cat.socialCooldown > 0) cat.socialCooldown -= dt;
@@ -48,14 +49,14 @@ export function updateCat(
   updateBlink(cat, dt);
 
   switch (cat.state) {
-    case 'idle':    updateIdle(cat, map, allCats); break;
+    case 'idle':    updateIdle(cat, map, allCats, blocked); break;
     case 'walk':
     case 'wander':
     case 'zoomies':
-    case 'play':    updateMovement(cat, dt, map); break;
+    case 'play':    updateMovement(cat, dt, map, blocked); break;
     case 'nap_pile':
     case 'headbonk':
-      if (cat.path.length > 0) updateMovement(cat, dt, map);
+      if (cat.path.length > 0) updateMovement(cat, dt, map, blocked);
       else updateTimedBehavior(cat);
       break;
     case 'sleep':
@@ -79,9 +80,9 @@ export function getEffectiveState(cat: Cat): CatState {
 
 // ── State updates ─────────────────────────────────────────────
 
-function updateIdle(cat: Cat, map: TileMap, allCats: ReadonlyMap<string, Cat>): void {
+function updateIdle(cat: Cat, map: TileMap, allCats: ReadonlyMap<string, Cat>, blocked?: Set<string>): void {
   if (cat.stateTimer >= cat.stateDuration) {
-    pickIdleBehavior(cat, map, allCats);
+    pickIdleBehavior(cat, map, allCats, blocked);
   }
 }
 
@@ -91,14 +92,14 @@ function updateTimedBehavior(cat: Cat): void {
   }
 }
 
-function updateMovement(cat: Cat, dt: number, map: TileMap): void {
+function updateMovement(cat: Cat, dt: number, map: TileMap, blocked?: Set<string>): void {
   const arrived = advanceAlongPath(cat, dt);
-  if (arrived) onArrival(cat, map);
+  if (arrived) onArrival(cat, map, blocked);
 }
 
 // ── Arrival logic ─────────────────────────────────────────────
 
-function onArrival(cat: Cat, map: TileMap): void {
+function onArrival(cat: Cat, map: TileMap, blocked?: Set<string>): void {
   switch (cat.state) {
     case 'walk':
       // Agent-driven: if cat arrived at its seat with a pending work state, start working
@@ -120,14 +121,14 @@ function onArrival(cat: Cat, map: TileMap): void {
       break;
     case 'zoomies':
       if (cat.stateTimer < cat.stateDuration) {
-        startBfsWalk(cat, map, ZOOMIES_SPEED);
+        startBfsWalk(cat, map, ZOOMIES_SPEED, blocked);
       } else {
         toIdle(cat);
       }
       break;
     case 'play':
       if (cat.stateTimer < cat.stateDuration) {
-        if (!startBfsWalk(cat, map, WALK_SPEED)) toIdle(cat);
+        if (!startBfsWalk(cat, map, WALK_SPEED, blocked)) toIdle(cat);
       } else {
         toIdle(cat);
       }
@@ -146,11 +147,11 @@ function onArrival(cat: Cat, map: TileMap): void {
 
 // ── Idle behavior picker (weighted random) ────────────────────
 
-function pickIdleBehavior(cat: Cat, map: TileMap, allCats: ReadonlyMap<string, Cat>): void {
+function pickIdleBehavior(cat: Cat, map: TileMap, allCats: ReadonlyMap<string, Cat>, blocked?: Set<string>): void {
   // Try social behavior first (Phase 9)
   if (cat.socialCooldown <= 0 && allCats.size > 1) {
     const nearby = findNearbyCat(cat, allCats);
-    if (nearby && trySocialBehavior(cat, nearby, map)) {
+    if (nearby && trySocialBehavior(cat, nearby, map, blocked)) {
       cat.socialCooldown = SOCIAL_COOLDOWN_SEC;
       return;
     }
@@ -167,7 +168,7 @@ function pickIdleBehavior(cat: Cat, map: TileMap, allCats: ReadonlyMap<string, C
     toTimed(cat, 'stretch', STRETCH_MIN_SEC, STRETCH_MAX_SEC);
   } else if (r < 0.90) {
     // wander (20%): BFS walk to a random walkable tile
-    if (startBfsWalk(cat, map, WALK_SPEED)) {
+    if (startBfsWalk(cat, map, WALK_SPEED, blocked)) {
       cat.state = 'wander';
       cat.stateTimer = 0;
     } else {
@@ -175,7 +176,7 @@ function pickIdleBehavior(cat: Cat, map: TileMap, allCats: ReadonlyMap<string, C
     }
   } else {
     // zoomies (10%): fast multi-destination sprint with a time budget
-    if (startBfsWalk(cat, map, ZOOMIES_SPEED)) {
+    if (startBfsWalk(cat, map, ZOOMIES_SPEED, blocked)) {
       cat.state = 'zoomies';
       cat.stateTimer = 0;
       cat.stateDuration = randRange(ZOOMIES_MIN_SEC, ZOOMIES_MAX_SEC);
@@ -224,20 +225,20 @@ function findNearbyCat(cat: Cat, allCats: ReadonlyMap<string, Cat>): Cat | null 
 }
 
 /** Roll for a social behavior based on the target's state. */
-function trySocialBehavior(cat: Cat, target: Cat, map: TileMap): boolean {
+function trySocialBehavior(cat: Cat, target: Cat, map: TileMap, blocked?: Set<string>): boolean {
   if (target.state === 'sleep' || target.state === 'nap_pile') {
-    if (Math.random() < 0.30) return startNapPile(cat, target, map);
+    if (Math.random() < 0.30) return startNapPile(cat, target, map, blocked);
   } else if (target.state === 'idle' || target.state === 'wander') {
     const r = Math.random();
-    if (r < 0.20) return startPlay(cat, target, map);
-    if (target.state === 'idle' && r < 0.40) return startHeadbonk(cat, target, map);
+    if (r < 0.20) return startPlay(cat, target, map, blocked);
+    if (target.state === 'idle' && r < 0.40) return startHeadbonk(cat, target, map, blocked);
   }
   return false;
 }
 
 /** Walk to an adjacent tile of a sleeping cat, then sleep together. */
-function startNapPile(cat: Cat, target: Cat, map: TileMap): boolean {
-  const adj = findAdjacentWalkable(target.tileCol, target.tileRow, map);
+function startNapPile(cat: Cat, target: Cat, map: TileMap, blocked?: Set<string>): boolean {
+  const adj = findAdjacentWalkable(target.tileCol, target.tileRow, map, blocked);
   if (!adj) return false;
 
   cat.state = 'nap_pile';
@@ -252,7 +253,7 @@ function startNapPile(cat: Cat, target: Cat, map: TileMap): boolean {
     return true;
   }
 
-  const path = findPath(cat.tileCol, cat.tileRow, adj.col, adj.row, map);
+  const path = findPath(cat.tileCol, cat.tileRow, adj.col, adj.row, map, blocked);
   if (path.length === 0) return false;
 
   cat.path = path;
@@ -262,15 +263,15 @@ function startNapPile(cat: Cat, target: Cat, map: TileMap): boolean {
 }
 
 /** Both cats enter play state with independent random walks. */
-function startPlay(cat: Cat, target: Cat, map: TileMap): boolean {
-  if (!startBfsWalk(cat, map, WALK_SPEED)) return false;
+function startPlay(cat: Cat, target: Cat, map: TileMap, blocked?: Set<string>): boolean {
+  if (!startBfsWalk(cat, map, WALK_SPEED, blocked)) return false;
 
   cat.state = 'play';
   cat.stateTimer = 0;
   cat.stateDuration = randRange(PLAY_MIN_SEC, PLAY_MAX_SEC);
 
   // Target also enters play
-  if (startBfsWalk(target, map, WALK_SPEED)) {
+  if (startBfsWalk(target, map, WALK_SPEED, blocked)) {
     target.state = 'play';
     target.stateTimer = 0;
     target.stateDuration = randRange(PLAY_MIN_SEC, PLAY_MAX_SEC);
@@ -281,7 +282,7 @@ function startPlay(cat: Cat, target: Cat, map: TileMap): boolean {
 }
 
 /** Walk to target cat's tile, then bump for HEADBONK_SEC. */
-function startHeadbonk(cat: Cat, target: Cat, map: TileMap): boolean {
+function startHeadbonk(cat: Cat, target: Cat, map: TileMap, blocked?: Set<string>): boolean {
   cat.state = 'headbonk';
   cat.stateTimer = 0;
   cat.stateDuration = HEADBONK_SEC;
@@ -294,7 +295,7 @@ function startHeadbonk(cat: Cat, target: Cat, map: TileMap): boolean {
     return true;
   }
 
-  const path = findPath(cat.tileCol, cat.tileRow, target.tileCol, target.tileRow, map);
+  const path = findPath(cat.tileCol, cat.tileRow, target.tileCol, target.tileRow, map, blocked);
   if (path.length === 0) return false;
 
   cat.path = path;
@@ -308,6 +309,7 @@ function findAdjacentWalkable(
   col: number,
   row: number,
   map: TileMap,
+  blocked?: Set<string>,
 ): { col: number; row: number } | null {
   const dirs: [number, number][] = [[0, -1], [1, 0], [0, 1], [-1, 0]];
   // Shuffle for variety
@@ -316,7 +318,7 @@ function findAdjacentWalkable(
     [dirs[i], dirs[j]] = [dirs[j], dirs[i]];
   }
   for (const [dc, dr] of dirs) {
-    if (isWalkable(map, col + dc, row + dr)) {
+    if (isWalkable(map, col + dc, row + dr, blocked)) {
       return { col: col + dc, row: row + dr };
     }
   }
@@ -346,11 +348,11 @@ function toTimed(cat: Cat, state: CatState, minSec: number, maxSec: number): voi
  * Pick a random walkable destination and BFS to it.
  * Returns true if a path was found and walking started.
  */
-function startBfsWalk(cat: Cat, map: TileMap, speed: number): boolean {
-  const dest = randomWalkableTile(map);
+function startBfsWalk(cat: Cat, map: TileMap, speed: number, blocked?: Set<string>): boolean {
+  const dest = randomWalkableTile(map, blocked);
   if (!dest) return false;
 
-  const path = findPath(cat.tileCol, cat.tileRow, dest.col, dest.row, map);
+  const path = findPath(cat.tileCol, cat.tileRow, dest.col, dest.row, map, blocked);
   if (path.length === 0 && (cat.tileCol !== dest.col || cat.tileRow !== dest.row)) {
     return false; // destination is unreachable
   }
