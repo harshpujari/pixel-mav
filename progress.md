@@ -84,19 +84,21 @@ _Replace placeholder grid with a real tile map. Cats walk real paths._
 
 ---
 
-## Phase 7 — Sprite System + First Breed
+## Phase 7 — Sprite System + First Breed ✓
 _Real cat sprites replace colored rectangles._
 
-- [ ] PNG sprite sheet loading (Image → drawImage)
-- [ ] `spriteData.ts`: frame rects, animation definitions per state
-- [ ] `spriteCache.ts`: per-zoom cached canvases (WeakMap)
-- [ ] First breed (Tabby): all 4 directions, all animation states
-- [ ] Walk cycle: [1,2,3,2] at 0.15s/frame
-- [ ] Type cycle: [5,6] at 0.25s/frame
-- [ ] Read: [7] with blink overlay at 0.4s/frame
-- [ ] Left-facing = horizontally flipped right row
-- [ ] Sitting offset (+6px) when typing/reading at desk
-- [ ] Z-sort by bottom-edge Y coordinate
+- [x] Sprite sheet system (procedural bitmap → cached canvas → drawImage) — `spriteData.ts`, `spriteCache.ts`
+- [x] `spriteData.ts`: frame bitmaps (10×12 string encoding), animation definitions, breed palettes, sheet layout (8×4)
+- [x] `spriteCache.ts`: per-zoom cached HTMLCanvasElement frames with lazy invalidation
+- [x] All 6 breeds with colour palettes (body/dark/light/eye/nose/earInner)
+- [x] All 4 directions: down (8 frames), up (4), right (4), left = flipped right
+- [x] Walk cycle: [1,2,3,2] at 0.15s/frame — 3 distinct walk poses per direction
+- [x] Type cycle: [5,6] at 0.25s/frame — alternating paw extensions
+- [x] Read: [7] with breed-coloured blink overlay at 0.4s/frame
+- [x] Sit (wait state), sleep, groom, stretch — all with distinct bitmap poses
+- [x] Left-facing = horizontally flipped right row (handled in spriteCache)
+- [x] Sitting offset (+3 world px) when typing/reading/waiting at desk
+- [x] Z-sort by bottom-edge Y coordinate (constant sprite height → y-sort equivalent)
 
 ---
 
