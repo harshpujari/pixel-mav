@@ -116,15 +116,15 @@ _The personality layer — what makes cats feel alive when Claude is idle._
 
 ---
 
-## Phase 9 — Social Behaviors
+## Phase 9 — Social Behaviors ✓
 _Multi-cat interactions that emerge from proximity._
 
-- [ ] Proximity detection: find nearest cat within 3 tiles (every 3s)
-- [ ] Nap Pile: if nearby cat sleeping → 30% chance → walk adjacent, sleep together
-- [ ] Play: if nearby cat idle/wandering → 20% chance → chase sequence (both cats move)
-- [ ] Headbonk: if nearby cat idle → walk over + bump animation, 2s
-- [ ] Social cooldown per cat (prevent constant social attempts)
-- [ ] Social behaviors interrupted by agent becoming active
+- [x] Proximity detection: find nearest cat within 3 tiles (Manhattan distance) — `findNearbyCat()` in `stateMachine.ts`
+- [x] Nap Pile: if nearby cat sleeping → 30% chance → walk adjacent, sleep together — `startNapPile()`
+- [x] Play: if nearby cat idle/wandering → 20% chance → chase sequence (both cats move) — `startPlay()`
+- [x] Headbonk: if nearby cat idle → walk over + bump animation, 2s — `startHeadbonk()`
+- [x] Social cooldown per cat (15s full / 5s on failed attempt) — `SOCIAL_COOLDOWN_SEC`
+- [x] Social behaviors interrupted by agent becoming active — existing `agentActive` handler overrides state
 
 ---
 
