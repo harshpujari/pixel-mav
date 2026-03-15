@@ -1,5 +1,6 @@
 import { tileMap } from '../../environment/tileMap.ts';
 import { drawCats } from './catRenderer.ts';
+import { drawParticles } from './effectRenderer.ts';
 import { drawTiles } from './tileRenderer.ts';
 import type { Camera } from './camera.ts';
 
@@ -32,5 +33,8 @@ export class Renderer {
 
     // ── Cats ──────────────────────────────────────────────
     drawCats(ctx, offsetX, offsetY, zoom);
+
+    // ── Effects (particles on top) ───────────────────
+    drawParticles(ctx, offsetX, offsetY, zoom);
   }
 }

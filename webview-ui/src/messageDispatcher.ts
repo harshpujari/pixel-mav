@@ -2,6 +2,7 @@ import { AGENT_IDLE_COOLDOWN_SEC, WALK_SPEED } from './constants.ts';
 import { addCat, cats, getCat, makeCat, removeCat } from './engine/catStore.ts';
 import { tileCenter } from './engine/movement.ts';
 import { findPath } from './engine/pathfinding.ts';
+import { emitDespawnEffect, emitSpawnEffect } from './engine/renderer/effectRenderer.ts';
 import { randomWalkableTile, tileMap } from './environment/tileMap.ts';
 import type { CatBreed } from './types.ts';
 
@@ -32,18 +33,35 @@ export function dispatchMessage(msg: { type: string } & Record<string, unknown>)
       cat.x = tileCenter(spawn.col);
       cat.y = tileCenter(spawn.row);
 
+      // Spawn effect: fade in + particles (restored agents skip — spawnEffect stays false)
+      cat.spawnEffect = true;
+      cat.effectTimer = 0;
+
       addCat(cat);
+      emitSpawnEffect(cat.x, cat.y, cat.isSubagent);
       break;
     }
 
     case 'catDespawned': {
-      removeCat(`agent-${msg.agentId as string}`);
+      const cat = getCat(`agent-${msg.agentId as string}`);
+      if (!cat) break;
+
+      // Start despawn effect — cat fades out over DESPAWN_DURATION then gets removed
+      cat.despawnEffect = true;
+      cat.effectTimer = 0;
+      cat.state = 'stretch';  // yawn pose → transitions to curled at midpoint
+      cat.frame = 0;
+      cat.frameTimer = 0;
+      cat.direction = 'down';
+      cat.path = [];
+      cat.targetWorkState = null;
+      emitDespawnEffect(cat.x, cat.y, cat.isSubagent);
       break;
     }
 
     case 'agentActive': {
       const cat = getCat(`agent-${msg.agentId as string}`);
-      if (!cat) break;
+      if (!cat || cat.despawnEffect) break;
 
       const catState = msg.catState as 'type' | 'read' | 'wait';
       cat.activeTool = msg.tool as string;
@@ -69,7 +87,7 @@ export function dispatchMessage(msg: { type: string } & Record<string, unknown>)
 
     case 'agentIdle': {
       const cat = getCat(`agent-${msg.agentId as string}`);
-      if (!cat) break;
+      if (!cat || cat.despawnEffect) break;
 
       cat.activeTool = null;
       cat.targetWorkState = null;
@@ -83,7 +101,7 @@ export function dispatchMessage(msg: { type: string } & Record<string, unknown>)
 
     case 'agentPermission': {
       const cat = getCat(`agent-${msg.agentId as string}`);
-      if (!cat) break;
+      if (!cat || cat.despawnEffect) break;
 
       cat.bubbleType = 'permission';
       cat.bubbleTimer = 0;

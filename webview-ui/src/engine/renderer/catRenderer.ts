@@ -1,3 +1,4 @@
+import { DESPAWN_DURATION, SPAWN_DURATION } from '../../constants.ts';
 import type { Cat, CatState } from '../../types.ts';
 import { cats } from '../catStore.ts';
 import { getEffectiveState } from '../stateMachine.ts';
@@ -75,6 +76,14 @@ function drawCat(
   const dx = Math.round(offsetX + cat.x * zoom - w / 2);
   const dy = Math.round(offsetY + cat.y * zoom - h / 2) + sittingOff;
 
+  // Spawn/despawn fade
+  const fadeAlpha = cat.spawnEffect
+    ? Math.min(1, cat.effectTimer / SPAWN_DURATION)
+    : cat.despawnEffect
+    ? Math.max(0, 1 - cat.effectTimer / DESPAWN_DURATION)
+    : 1;
+
+  ctx.globalAlpha = fadeAlpha;
   ctx.drawImage(frame, dx, dy);
 
   // Blink overlay: read state (frame 1) or idle blink timer
@@ -100,13 +109,15 @@ function drawCat(
 
   // Z-bubble for sleeping (includes nap_pile when not walking)
   if (cat.state === 'sleep' || (cat.state === 'nap_pile' && cat.path.length === 0)) {
-    drawZzz(ctx, dx + w, dy, zoom, cat.stateTimer);
+    drawZzz(ctx, dx + w, dy, zoom, cat.stateTimer, fadeAlpha);
   }
 
   // Permission bubble
   if (cat.bubbleType === 'permission' && cat.state === 'wait') {
     drawBubble(ctx, dx + w / 2, dy - Math.round(4 * zoom), zoom, '?');
   }
+
+  ctx.globalAlpha = 1;
 }
 
 // ── Blink overlay (2px over eye positions) ──────────────────
@@ -142,6 +153,7 @@ function drawZzz(
   y: number,
   zoom: number,
   timer: number,
+  baseAlpha: number = 1,
 ): void {
   const phase = (timer * 0.8) % 3;
   ctx.font = `${Math.round(3 * zoom)}px monospace`;
@@ -157,14 +169,13 @@ function drawZzz(
     const o = offsets[i];
     const bob = Math.sin((phase + i) * 2) * zoom;
     const alpha = Math.max(0, 1 - ((phase + i * 0.5) % 3) / 3);
-    ctx.globalAlpha = alpha * 0.7;
+    ctx.globalAlpha = alpha * 0.7 * baseAlpha;
     ctx.fillText(
       'z',
       x + Math.round(o.dx * zoom),
       y + Math.round(o.dy * zoom) + bob,
     );
   }
-  ctx.globalAlpha = 1;
 }
 
 // ── Permission bubble ────────────────────────────────────────

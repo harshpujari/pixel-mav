@@ -50,5 +50,9 @@ export const HEADBONK_SEC = 2;          // headbonk duration
 export const PLAY_MIN_SEC = 3;
 export const PLAY_MAX_SEC = 5;
 
+// ── Spawn / despawn effects (Phase 11) ──────────────────────
+export const SPAWN_DURATION = 0.4;   // seconds — cat fade-in
+export const DESPAWN_DURATION = 0.5; // seconds — yawn → curl → fade-out
+
 // ── Agent behavior ──────────────────────────────────────────
 export const AGENT_IDLE_COOLDOWN_SEC = 2; // delay before first idle behavior after agent goes idle

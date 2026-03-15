@@ -1,11 +1,14 @@
 import {
+  DESPAWN_DURATION,
   IDLE_MIN_SEC,
   IDLE_MAX_SEC,
+  SPAWN_DURATION,
   WALK_SPEED,
 } from '../constants.ts';
 import { tileMap } from '../environment/tileMap.ts';
 import type { Cat, CatBreed } from '../types.ts';
 import { tileCenter } from './movement.ts';
+import { updateParticles } from './renderer/effectRenderer.ts';
 import { randRange, updateCat } from './stateMachine.ts';
 
 // ── Flat entity store ─────────────────────────────────────────
@@ -27,9 +30,36 @@ export function getCat(id: string): Cat | undefined {
 
 /** Advance all cats by `dt` seconds. Called once per game loop frame. */
 export function updateAllCats(dt: number): void {
+  updateParticles(dt);
+
+  const toRemove: string[] = [];
   for (const cat of cats.values()) {
+    // Spawn fade-in
+    if (cat.spawnEffect) {
+      cat.effectTimer += dt;
+      if (cat.effectTimer >= SPAWN_DURATION) {
+        cat.spawnEffect = false;
+      }
+    }
+
+    // Despawn fade-out: yawn → curl → remove
+    if (cat.despawnEffect) {
+      cat.effectTimer += dt;
+      if (cat.effectTimer >= DESPAWN_DURATION / 2 && cat.state !== 'sleep') {
+        cat.state = 'sleep';
+        cat.frame = 0;
+        cat.frameTimer = 0;
+      }
+      if (cat.effectTimer >= DESPAWN_DURATION) {
+        toRemove.push(cat.id);
+      }
+      continue; // skip state machine during despawn
+    }
+
     updateCat(cat, dt, tileMap, cats);
   }
+
+  for (const id of toRemove) removeCat(id);
 }
 
 // ── Factory ───────────────────────────────────────────────────
