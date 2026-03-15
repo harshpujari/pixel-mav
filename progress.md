@@ -146,14 +146,15 @@ _Multi-cat interactions that emerge from proximity._
 
 ---
 
-## Phase 12 — Furniture + Environment
-- [ ] `furnitureCatalog.ts`: furniture definitions (desk, cat bed, cat tree, toys, food bowl…)
-- [ ] Furniture rendering with Z-sort interleaved with cats
-- [ ] Blocked tiles from furniture footprints
-- [ ] Seat positions derived from desk placement
-- [ ] Rotation variants (front/back/left/right)
-- [ ] Toggle states (electronics on/off, linked to agent activity)
-- [ ] Default layout with desks + basic furniture
+## Phase 12 — Furniture + Environment ✓
+- [x] `furnitureCatalog.ts`: furniture definitions (desk, cat bed, food bowl, plant, bookshelf)
+- [x] `furnitureStore.ts`: placed instances, blocked tiles, seat derivation, desk toggle
+- [x] Furniture rendering with Z-sort interleaved with cats (`furnitureRenderer.ts` + unified Z-sort in `renderer.ts`)
+- [x] Blocked tiles from furniture footprints (threaded through stateMachine, pathfinding, randomWalkableTile)
+- [x] Seat positions derived from desk placement (seatOffset + rotation support)
+- [x] Rotation variants (0/1/2/3 in PlacedFurniture, w/h swap + seat offset rotation)
+- [x] Toggle states (desk monitor on/off linked to agentActive/agentIdle/catDespawned)
+- [x] Default layout: 8 desks matching DEFAULT_SEATS + 2 bookshelves + 2 plants + 2 cat beds + food bowl
 
 ---
 
