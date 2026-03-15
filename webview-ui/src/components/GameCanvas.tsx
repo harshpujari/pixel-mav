@@ -5,7 +5,7 @@ import { cats, updateAllCats } from '../engine/catStore.ts';
 import { Camera } from '../engine/renderer/camera.ts';
 import { Renderer } from '../engine/renderer/renderer.ts';
 import { postMessage } from '../vscodeApi.ts';
-import { CAT_WIDTH_PX, CAT_HEIGHT_PX } from '../constants.ts';
+import { SPRITE_W, SPRITE_H } from '../engine/renderer/spriteData.ts';
 
 /**
  * The main game canvas. Owns the Camera, Renderer, and GameLoop.
@@ -89,8 +89,8 @@ export function GameCanvas() {
     const worldPos = camera.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
 
     // Hit test: check if click is within any cat's bounding box
-    const halfW = CAT_WIDTH_PX / 2;
-    const halfH = CAT_HEIGHT_PX / 2;
+    const halfW = SPRITE_W / 2;
+    const halfH = SPRITE_H / 2;
     for (const cat of cats.values()) {
       if (
         cat.agentId &&

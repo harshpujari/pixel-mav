@@ -45,7 +45,3 @@ export const STRETCH_FRAME_SEC = 0.6;
 
 // ── Agent behavior ──────────────────────────────────────────
 export const AGENT_IDLE_COOLDOWN_SEC = 2; // delay before first idle behavior after agent goes idle
-
-// ── Cat placeholder renderer ─────────────────────────────────
-export const CAT_WIDTH_PX = 10;  // world pixels wide
-export const CAT_HEIGHT_PX = 12; // world pixels tall
