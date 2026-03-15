@@ -43,5 +43,12 @@ export const SLEEP_FRAME_SEC = 0.8;
 export const GROOM_FRAME_SEC = 0.5;
 export const STRETCH_FRAME_SEC = 0.6;
 
+// ── Social behavior (Phase 9) ────────────────────────────────
+export const SOCIAL_COOLDOWN_SEC = 15;  // cooldown after any social attempt
+export const SOCIAL_RANGE_TILES = 3;    // proximity detection range (Manhattan distance)
+export const HEADBONK_SEC = 2;          // headbonk duration
+export const PLAY_MIN_SEC = 3;
+export const PLAY_MAX_SEC = 5;
+
 // ── Agent behavior ──────────────────────────────────────────
 export const AGENT_IDLE_COOLDOWN_SEC = 2; // delay before first idle behavior after agent goes idle

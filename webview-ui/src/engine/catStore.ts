@@ -28,7 +28,7 @@ export function getCat(id: string): Cat | undefined {
 /** Advance all cats by `dt` seconds. Called once per game loop frame. */
 export function updateAllCats(dt: number): void {
   for (const cat of cats.values()) {
-    updateCat(cat, dt, tileMap);
+    updateCat(cat, dt, tileMap, cats);
   }
 }
 

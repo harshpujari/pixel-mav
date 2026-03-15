@@ -1,5 +1,6 @@
 import type { Cat, CatState } from '../../types.ts';
 import { cats } from '../catStore.ts';
+import { getEffectiveState } from '../stateMachine.ts';
 import { getFrame } from './spriteCache.ts';
 import {
   SPRITE_W,
@@ -12,15 +13,18 @@ import {
 
 // ── State indicator colours ──────────────────────────────────
 const STATE_COLOR: Partial<Record<CatState, string>> = {
-  type:    '#00ff88',
-  read:    '#00aaff',
-  wait:    '#ffcc00',
-  sleep:   '#8888ff',
-  groom:   '#ff88cc',
-  stretch: '#ffaa44',
-  walk:    '#ffffff',
-  wander:  '#ffffff',
-  zoomies: '#ff4444',
+  type:     '#00ff88',
+  read:     '#00aaff',
+  wait:     '#ffcc00',
+  sleep:    '#8888ff',
+  groom:    '#ff88cc',
+  stretch:  '#ffaa44',
+  walk:     '#ffffff',
+  wander:   '#ffffff',
+  zoomies:  '#ff4444',
+  nap_pile: '#8888ff',
+  play:     '#44ff44',
+  headbonk: '#ff88ff',
 };
 
 // States where the cat is sitting at a desk
@@ -50,8 +54,9 @@ function drawCat(
   offsetY: number,
   zoom: number,
 ): void {
-  // Resolve sheet position from animation state
-  const anim = ANIM_DEFS[cat.state];
+  // Resolve sheet position from animation state (social states use effective state)
+  const effectiveState = getEffectiveState(cat);
+  const anim = ANIM_DEFS[effectiveState];
   const col = anim ? anim.frames[cat.frame % anim.frames.length] : 0;
   const row = anim
     ? (anim.row === 'dir' ? DIR_ROW[cat.direction] : anim.row)
@@ -93,8 +98,8 @@ function drawCat(
     );
   }
 
-  // Z-bubble for sleeping
-  if (cat.state === 'sleep') {
+  // Z-bubble for sleeping (includes nap_pile when not walking)
+  if (cat.state === 'sleep' || (cat.state === 'nap_pile' && cat.path.length === 0)) {
     drawZzz(ctx, dx + w, dy, zoom, cat.stateTimer);
   }
 

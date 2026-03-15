@@ -41,7 +41,10 @@ export const ANIM_DEFS: Partial<Record<CatState, AnimDef>> = {
   wait:    { frames: [4], row: 0 },
   sleep:   { frames: [0, 1], row: 3 },
   groom:   { frames: [2, 3], row: 3 },
-  stretch: { frames: [4, 5], row: 3 },
+  stretch:  { frames: [4, 5], row: 3 },
+  nap_pile: { frames: [0, 1], row: 3 },          // reuses sleep animation
+  play:     { frames: [1, 2, 3, 2], row: 'dir' }, // reuses walk animation
+  headbonk: { frames: [0], row: 'dir' },          // idle pose at target
 };
 
 /** Direction → sheet row. Left uses right row, rendered flipped. */
