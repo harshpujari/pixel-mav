@@ -102,17 +102,17 @@ _Real cat sprites replace colored rectangles._
 
 ---
 
-## Phase 8 — Idle Behaviors
+## Phase 8 — Idle Behaviors ✓
 _The personality layer — what makes cats feel alive when Claude is idle._
 
-- [ ] Sleep: curl up animation [S0,S1] at 0.8s/frame, Z bubble particles, 8-15s duration
-- [ ] Groom: lick paw [G0,G1] at 0.5s/frame, 3-5s duration
-- [ ] Stretch: big stretch + yawn [St0,St1] at 0.6s/frame, 2-3s duration
-- [ ] Wander: BFS to random walkable tile (prefer SUNNY tiles), resume idle on arrival
-- [ ] Zoomies: walk cycle at 0.08s/frame, 2× speed, 3-5s with multiple random targets
-- [ ] Idle blink overlay (random 3-6s interval)
-- [ ] 2s cooldown after agent goes idle before first idle behavior
-- [ ] Interrupted by agent becoming active → walk to seat
+- [x] Sleep: curl up [S0,S1] at 0.8s/frame, Z bubbles, 8-15s — stateMachine + catRenderer `drawZzz()`
+- [x] Groom: lick paw [G0,G1] at 0.5s/frame, 3-5s — stateMachine `toTimed()`
+- [x] Stretch: [St0,St1] at 0.6s/frame, 2-3s — stateMachine `toTimed()`
+- [x] Wander: BFS to random walkable tile (30% SUNNY preference), idle on arrival — Phase 6
+- [x] Zoomies: walk cycle at 0.075s/frame, 2× speed, 3-5s multi-destination — Phase 6
+- [x] Idle blink overlay (2.5-5s interval, 0.12s duration, down-facing only) — `blinkTimer` on Cat
+- [x] 2s cooldown after agent goes idle — `AGENT_IDLE_COOLDOWN_SEC` in messageDispatcher
+- [x] Interrupted by agent becoming active → BFS walk to seat — messageDispatcher `agentActive`
 
 ---
 
