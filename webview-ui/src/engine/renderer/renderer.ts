@@ -1,5 +1,6 @@
 import { tileMap } from '../../environment/tileMap.ts';
 import { furniture, furnitureSortY } from '../../environment/furnitureStore.ts';
+import { drawEditorOverlay } from '../../editor/editorRenderer.ts';
 import { cats } from '../catStore.ts';
 import { drawSingleCat } from './catRenderer.ts';
 import { drawFurnitureItem } from './furnitureRenderer.ts';
@@ -58,5 +59,8 @@ export class Renderer {
 
     // ── Effects (particles on top) ───────────────────
     drawParticles(ctx, offsetX, offsetY, zoom);
+
+    // ── Editor overlay (ghost, grid, selection) ────
+    drawEditorOverlay(ctx, offsetX, offsetY, zoom);
   }
 }

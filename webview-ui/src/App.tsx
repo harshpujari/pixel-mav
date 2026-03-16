@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import { EditorToolbar } from './components/EditorToolbar.tsx';
 import { GameCanvas } from './components/GameCanvas.tsx';
 import { dispatchMessage } from './messageDispatcher.ts';
 import { postMessage } from './vscodeApi.ts';
@@ -19,5 +20,10 @@ export function App() {
     return () => window.removeEventListener('message', onMessage);
   }, []);
 
-  return <GameCanvas />;
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <GameCanvas />
+      <EditorToolbar />
+    </div>
+  );
 }

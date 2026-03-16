@@ -6,6 +6,22 @@ import { Camera } from '../engine/renderer/camera.ts';
 import { Renderer } from '../engine/renderer/renderer.ts';
 import { postMessage } from '../vscodeApi.ts';
 import { SPRITE_W, SPRITE_H } from '../engine/renderer/spriteData.ts';
+import { tileMap } from '../environment/tileMap.ts';
+
+import { editor, notify } from '../editor/editorState.ts';
+import {
+  toggleEditor,
+  startDrag,
+  continueDrag,
+  endDrag,
+  eraseAt,
+  undo,
+  redo,
+  rotateGhost,
+  rotateSelected,
+  deleteSelected,
+  toggleSelectedActive,
+} from '../editor/editorActions.ts';
 
 /**
  * The main game canvas. Owns the Camera, Renderer, and GameLoop.
@@ -14,11 +30,15 @@ import { SPRITE_W, SPRITE_H } from '../engine/renderer/spriteData.ts';
  * - Canvas backing store at device pixels (no ctx.scale)
  * - Native wheel listener with { passive: false }
  * - All pan/zoom state in camera ref (no React re-renders)
+ * - Editor input handling when editor mode is active
  */
 export function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const cameraRef = useRef(new Camera());
+
+  // Track last tile during drag to avoid redundant applies
+  const lastDragTile = useRef({ col: -1, row: -1 });
 
   // ── Resize: canvas backing store → device pixels ────────
   const resizeCanvas = useCallback(() => {
@@ -32,7 +52,6 @@ export function GameCanvas() {
     canvas.height = Math.round(rect.height * dpr);
     canvas.style.width = `${rect.width}px`;
     canvas.style.height = `${rect.height}px`;
-    // No ctx.scale(dpr) — we render directly in device pixels
 
     cameraRef.current.canvasWidth = canvas.width;
     cameraRef.current.canvasHeight = canvas.height;
@@ -49,12 +68,9 @@ export function GameCanvas() {
 
     resizeCanvas();
 
-    // Observe container for resize
     const observer = new ResizeObserver(resizeCanvas);
     observer.observe(container);
 
-    // Wheel listener — must be native with { passive: false }
-    // for reliable preventDefault() in VS Code webview
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       camera.handleWheel(e);
@@ -65,6 +81,9 @@ export function GameCanvas() {
     const stop = startGameLoop(canvas, {
       update: (dt) => {
         updateAllCats(dt);
+        // Sync camera grid dimensions (may change from editor)
+        camera.gridCols = tileMap.cols;
+        camera.gridRows = tileMap.rows;
         camera.update();
         camera.computeOffset();
       },
@@ -80,15 +99,81 @@ export function GameCanvas() {
     };
   }, [resizeCanvas]);
 
-  // ── Click: focus agent terminal ──────────────────────────
+  // ── Keyboard shortcuts ─────────────────────────────────────
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      // E: toggle editor (always)
+      if (e.key === 'e' || e.key === 'E') {
+        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+          toggleEditor();
+          e.preventDefault();
+          return;
+        }
+      }
+
+      if (!editor.active) return;
+
+      // Ctrl/Cmd+Z: undo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        undo();
+        e.preventDefault();
+      // Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y: redo
+      } else if (
+        ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) ||
+        ((e.ctrlKey || e.metaKey) && e.key === 'y')
+      ) {
+        redo();
+        e.preventDefault();
+      // R: rotate
+      } else if (e.key === 'r' || e.key === 'R') {
+        if (editor.selectedFurnitureId) rotateSelected();
+        else rotateGhost();
+        e.preventDefault();
+      // T: toggle active state
+      } else if (e.key === 't' || e.key === 'T') {
+        toggleSelectedActive();
+        e.preventDefault();
+      // Escape: deselect or exit editor
+      } else if (e.key === 'Escape') {
+        if (editor.selectedFurnitureId) {
+          editor.selectedFurnitureId = null;
+          notify();
+        } else {
+          toggleEditor();
+        }
+        e.preventDefault();
+      // Delete/Backspace: delete selected furniture
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        deleteSelected();
+        e.preventDefault();
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  // ── Helper: get tile coord from mouse event ────────────────
+  const getTileFromEvent = useCallback((e: React.MouseEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const camera = cameraRef.current;
+    const world = camera.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+    return camera.worldToTile(world.x, world.y);
+  }, []);
+
+  // ── Click: editor tool or focus agent terminal ─────────────
   const onClick = useCallback((e: React.MouseEvent) => {
+    if (editor.active) return; // handled by mousedown/up
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
     const camera = cameraRef.current;
     const worldPos = camera.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
 
-    // Hit test: check if click is within any cat's bounding box
+    // Hit test cats
     const halfW = SPRITE_W / 2;
     const halfH = SPRITE_H / 2;
     for (const cat of cats.values()) {
@@ -103,37 +188,91 @@ export function GameCanvas() {
     }
   }, []);
 
-  // ── Mouse: down/move/up → pan ─────────────────────────────
+  // ── Mouse: down/move/up → pan or editor tool ──────────────
   const onMouseDown = useCallback((e: React.MouseEvent) => {
-    cameraRef.current.handleMouseDown(e.nativeEvent);
-    if (cameraRef.current.isPanning) {
-      const canvas = canvasRef.current;
-      if (canvas) canvas.style.cursor = 'grabbing';
+    // Pan: middle button or alt+left (always works)
+    if (e.button === 1 || (e.button === 0 && e.altKey)) {
+      cameraRef.current.handleMouseDown(e.nativeEvent);
+      if (cameraRef.current.isPanning) {
+        const canvas = canvasRef.current;
+        if (canvas) canvas.style.cursor = 'grabbing';
+      }
+      return;
     }
-  }, []);
+
+    // Editor: left click applies tool
+    if (editor.active && e.button === 0) {
+      const tile = getTileFromEvent(e);
+      if (tile) {
+        lastDragTile.current = { col: tile.col, row: tile.row };
+        startDrag(tile.col, tile.row);
+      }
+      return;
+    }
+  }, [getTileFromEvent]);
 
   const onMouseMove = useCallback((e: React.MouseEvent) => {
-    cameraRef.current.handleMouseMove(e.nativeEvent);
-  }, []);
+    // Camera pan
+    if (cameraRef.current.isPanning) {
+      cameraRef.current.handleMouseMove(e.nativeEvent);
+      return;
+    }
+
+    if (!editor.active) return;
+
+    // Update cursor position for ghost preview
+    const tile = getTileFromEvent(e);
+    if (tile) {
+      editor.cursorCol = tile.col;
+      editor.cursorRow = tile.row;
+
+      // Continue drag painting
+      if (editor.isDragging) {
+        if (tile.col !== lastDragTile.current.col || tile.row !== lastDragTile.current.row) {
+          lastDragTile.current = { col: tile.col, row: tile.row };
+          continueDrag(tile.col, tile.row);
+        }
+      }
+    }
+  }, [getTileFromEvent]);
 
   const onMouseUp = useCallback(() => {
     cameraRef.current.handleMouseUp();
     const canvas = canvasRef.current;
-    if (canvas) canvas.style.cursor = 'default';
+    if (canvas) canvas.style.cursor = editor.active ? 'crosshair' : 'default';
+
+    if (editor.isDragging) {
+      endDrag();
+    }
   }, []);
 
   const onMouseLeave = useCallback(() => {
     cameraRef.current.handleMouseUp();
     const canvas = canvasRef.current;
-    if (canvas) canvas.style.cursor = 'default';
+    if (canvas) canvas.style.cursor = editor.active ? 'crosshair' : 'default';
+
+    if (editor.isDragging) {
+      endDrag();
+    }
+
+    if (editor.active) {
+      editor.cursorCol = -1;
+      editor.cursorRow = -1;
+    }
   }, []);
 
-  // Prevent context menu
+  // Right-click: prevent context menu + erase in editor
   const onContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-  }, []);
+    if (editor.active) {
+      const tile = getTileFromEvent(e);
+      if (tile) {
+        eraseAt(tile.col, tile.row);
+      }
+    }
+  }, [getTileFromEvent]);
 
-  // Prevent default middle-click browser behavior (auto-scroll)
+  // Prevent default middle-click browser behavior
   const onAuxClick = useCallback((e: React.MouseEvent) => {
     if (e.button === 1) e.preventDefault();
   }, []);

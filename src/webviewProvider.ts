@@ -1,12 +1,24 @@
 import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { AgentManager } from './agentManager.js';
-import { GLOBAL_KEY_SOUND_ENABLED, VIEW_ID, WORKSPACE_KEY_CAT_SEATS } from './constants.js';
+import {
+  GLOBAL_KEY_SOUND_ENABLED,
+  LAYOUT_DIR_NAME,
+  LAYOUT_FILE_NAME,
+  VIEW_ID,
+  WORKSPACE_KEY_CAT_SEATS,
+} from './constants.js';
+
+const LAYOUT_DIR = path.join(os.homedir(), LAYOUT_DIR_NAME);
+const LAYOUT_PATH = path.join(LAYOUT_DIR, LAYOUT_FILE_NAME);
 
 export class PixelMavViewProvider implements vscode.WebviewViewProvider {
   private webviewView: vscode.WebviewView | undefined;
   private agentManager: AgentManager | undefined;
+  private layoutWatcher: fs.FSWatcher | undefined;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -42,6 +54,10 @@ export class PixelMavViewProvider implements vscode.WebviewViewProvider {
           this.context.globalState.update(GLOBAL_KEY_SOUND_ENABLED, message.enabled);
           break;
 
+        case 'saveLayout':
+          this.saveLayout(message.json as string);
+          break;
+
         case 'focusCat': {
           const agent = this.agentManager?.getAgent(message.agentId as string);
           if (agent?.terminalRef) {
@@ -59,11 +75,17 @@ export class PixelMavViewProvider implements vscode.WebviewViewProvider {
         }
       }
     });
+
+    // Watch layout file for cross-window sync
+    this.watchLayout();
   }
 
   private onWebviewReady(): void {
     const soundEnabled = this.context.globalState.get<boolean>(GLOBAL_KEY_SOUND_ENABLED, true);
     this.webview?.postMessage({ type: 'settingsLoaded', soundEnabled });
+
+    // Load saved layout
+    this.loadAndSendLayout();
 
     // Start agent detection and send any existing agents to the webview
     this.agentManager?.start();
@@ -72,6 +94,44 @@ export class PixelMavViewProvider implements vscode.WebviewViewProvider {
       this.webview?.postMessage(existingCats);
     }
   }
+
+  // ── Layout persistence ──────────────────────────────────────
+
+  private loadAndSendLayout(): void {
+    try {
+      if (fs.existsSync(LAYOUT_PATH)) {
+        const json = fs.readFileSync(LAYOUT_PATH, 'utf-8');
+        this.webview?.postMessage({ type: 'layoutLoaded', json });
+      }
+    } catch {
+      // Ignore — use default layout
+    }
+  }
+
+  private saveLayout(json: string): void {
+    try {
+      if (!fs.existsSync(LAYOUT_DIR)) {
+        fs.mkdirSync(LAYOUT_DIR, { recursive: true });
+      }
+      fs.writeFileSync(LAYOUT_PATH, json, 'utf-8');
+    } catch (err) {
+      vscode.window.showErrorMessage(`Pixel Mav: failed to save layout — ${err}`);
+    }
+  }
+
+  private watchLayout(): void {
+    try {
+      if (fs.existsSync(LAYOUT_DIR)) {
+        this.layoutWatcher = fs.watch(LAYOUT_PATH, () => {
+          this.loadAndSendLayout();
+        });
+      }
+    } catch {
+      // File may not exist yet — that's fine
+    }
+  }
+
+  // ── Debug / lifecycle ─────────────────────────────────────
 
   focus(): void {
     vscode.commands.executeCommand(`${VIEW_ID}.focus`);
@@ -127,6 +187,8 @@ export class PixelMavViewProvider implements vscode.WebviewViewProvider {
   dispose(): void {
     this.agentManager?.dispose();
     this.agentManager = undefined;
+    this.layoutWatcher?.close();
+    this.layoutWatcher = undefined;
   }
 
   private getHtml(webview: vscode.Webview): string {

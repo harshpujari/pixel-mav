@@ -158,18 +158,21 @@ _Multi-cat interactions that emerge from proximity._
 
 ---
 
-## Phase 13 — Layout Editor + Persistence
-- [ ] Editor mode toggle (toolbar button)
-- [ ] Tools: Select, Floor Paint, Wall Paint, Erase, Place Furniture, Eyedropper
-- [ ] Ghost preview (valid = green, invalid = red)
-- [ ] Grid expansion (click ghost border)
-- [ ] 50-level undo/redo (layout snapshots)
-- [ ] Keyboard: Ctrl+Z/Y, R (rotate), T (toggle), Esc
-- [ ] Right-click erase, color picker for HSL tint
-- [ ] `EditorToolbar.tsx` component
-- [ ] Versioned layout JSON at `~/.pixel-mav/layout.json`
-- [ ] Load on startup, file watcher for cross-window sync
-- [ ] Agent seat assignments persisted to workspace state
+## Phase 13 — Layout Editor + Persistence ✓
+- [x] Editor mode toggle (E key or toolbar button) — `editor/editorState.ts`
+- [x] Tools: Select, Floor, Wall, Sunny, Erase, Furniture, Eyedropper — `editor/editorActions.ts`
+- [x] Ghost preview (green=valid, red=invalid, blue=expansion) — `editor/editorRenderer.ts`
+- [x] Grid expansion (click ghost border tiles adjacent to grid edge) — `editorActions.ts:tryExpandGrid()`
+- [x] 50-level undo/redo (full layout snapshots: tiles + furniture) — `editorActions.ts:undo()/redo()`
+- [x] Keyboard: Ctrl+Z/Y (undo/redo), R (rotate), T (toggle active), Esc (deselect/exit), Del (delete), E (toggle editor)
+- [x] Right-click erase (always erases regardless of current tool)
+- [x] Click+drag tile painting (floor/wall/sunny/erase — single undo entry per drag)
+- [x] `EditorToolbar.tsx` — React component with tool buttons, furniture palette, undo/redo, save
+- [x] Versioned layout JSON (v1) at `~/.pixel-mav/layout.json` — `editor/layoutSerializer.ts`
+- [x] Load on startup + file watcher for cross-window sync — `webviewProvider.ts`
+- [x] `layoutLoaded` IPC handler re-validates cat positions on non-walkable tiles
+- [x] Dashed selection outline on selected furniture, expansion ghost border around grid
+- [x] Camera gridCols/gridRows auto-synced from tileMap each frame (supports grid resize)
 
 ---
 

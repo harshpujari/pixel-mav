@@ -1,10 +1,11 @@
 import { AGENT_IDLE_COOLDOWN_SEC, WALK_SPEED } from './constants.ts';
+import { deserializeLayout } from './editor/layoutSerializer.ts';
 import { addCat, cats, getCat, makeCat, removeCat } from './engine/catStore.ts';
 import { tileCenter } from './engine/movement.ts';
 import { findPath } from './engine/pathfinding.ts';
 import { emitDespawnEffect, emitSpawnEffect } from './engine/renderer/effectRenderer.ts';
 import { getBlockedTiles, setDeskActiveBySeat } from './environment/furnitureStore.ts';
-import { randomWalkableTile, tileMap } from './environment/tileMap.ts';
+import { isWalkable, randomWalkableTile, tileMap } from './environment/tileMap.ts';
 import type { CatBreed } from './types.ts';
 
 /**
@@ -175,6 +176,27 @@ export function dispatchMessage(msg: { type: string } & Record<string, unknown>)
         // 'idle' → stays in default idle state from makeCat
 
         addCat(cat);
+      }
+      break;
+    }
+
+    case 'layoutLoaded': {
+      if (deserializeLayout(msg.json as string)) {
+        // Re-validate cat positions — move cats on non-walkable tiles
+        const blocked = getBlockedTiles();
+        for (const cat of cats.values()) {
+          if (!isWalkable(tileMap, cat.tileCol, cat.tileRow, blocked)) {
+            const spot = randomWalkableTile(tileMap, blocked);
+            if (spot) {
+              cat.tileCol = spot.col;
+              cat.tileRow = spot.row;
+              cat.x = tileCenter(spot.col);
+              cat.y = tileCenter(spot.row);
+              cat.path = [];
+              cat.moveProgress = 0;
+            }
+          }
+        }
       }
       break;
     }
