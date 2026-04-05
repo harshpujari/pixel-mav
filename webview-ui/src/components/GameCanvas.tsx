@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { startGameLoop } from '../engine/gameLoop.ts';
 import { cats, updateAllCats } from '../engine/catStore.ts';
 import { Camera } from '../engine/renderer/camera.ts';
+import { updateDebugFps, toggleDebug } from '../engine/renderer/debugOverlay.ts';
 import { Renderer } from '../engine/renderer/renderer.ts';
 import { postMessage } from '../vscodeApi.ts';
 import { SPRITE_W, SPRITE_H } from '../engine/renderer/spriteData.ts';
@@ -81,6 +82,7 @@ export function GameCanvas() {
     const stop = startGameLoop(canvas, {
       update: (dt) => {
         updateAllCats(dt);
+        updateDebugFps(dt);
         // Sync camera grid dimensions (may change from editor)
         camera.gridCols = tileMap.cols;
         camera.gridRows = tileMap.rows;
@@ -102,6 +104,13 @@ export function GameCanvas() {
   // ── Keyboard shortcuts ─────────────────────────────────────
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      // F3: toggle debug overlay (always)
+      if (e.key === 'F3') {
+        toggleDebug();
+        e.preventDefault();
+        return;
+      }
+
       // E: toggle editor (always)
       if (e.key === 'e' || e.key === 'E') {
         if (!e.ctrlKey && !e.metaKey && !e.altKey) {

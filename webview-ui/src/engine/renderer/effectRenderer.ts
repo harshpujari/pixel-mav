@@ -85,6 +85,10 @@ function emitMatrix(x: number, y: number): void {
   }
 }
 
+export function getParticleCount(): number {
+  return particles.length;
+}
+
 // ── Update ──────────────────────────────────────────────────
 
 export function updateParticles(dt: number): void {

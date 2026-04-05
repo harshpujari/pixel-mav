@@ -3,6 +3,7 @@ import { furniture, furnitureSortY } from '../../environment/furnitureStore.ts';
 import { drawEditorOverlay } from '../../editor/editorRenderer.ts';
 import { cats } from '../catStore.ts';
 import { drawSingleCat } from './catRenderer.ts';
+import { drawDebugOverlay } from './debugOverlay.ts';
 import { drawFurnitureItem } from './furnitureRenderer.ts';
 import { drawParticles } from './effectRenderer.ts';
 import { drawTiles } from './tileRenderer.ts';
@@ -62,5 +63,8 @@ export class Renderer {
 
     // ── Editor overlay (ghost, grid, selection) ────
     drawEditorOverlay(ctx, offsetX, offsetY, zoom);
+
+    // ── Debug overlay (F3) ──────────────────────────
+    drawDebugOverlay(ctx, offsetX, offsetY, zoom);
   }
 }
