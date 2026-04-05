@@ -168,6 +168,10 @@ CATALOG.set('plant', {
 
 // ── Bookshelf (2×1, placed against wall) ────────────────────
 
+// Pre-computed book sizes (deterministic — no Math.random in draw)
+const BOOK_WIDTHS  = [1.8, 2.5, 1.5, 2.8, 2.0, 1.7, 2.3, 1.6, 2.6, 2.1, 1.9, 2.4, 1.5, 2.7, 2.0, 1.8, 2.2, 1.6];
+const BOOK_HEIGHTS = [3.2, 3.8, 3.0, 3.5, 3.9, 3.1, 3.6, 3.3, 3.7, 3.4, 3.0, 3.8, 3.2, 3.6, 3.1, 3.5, 3.9, 3.3];
+
 CATALOG.set('bookshelf', {
   id: 'bookshelf',
   w: 2, h: 1,
@@ -193,9 +197,10 @@ CATALOG.set('bookshelf', {
       const sy = y + px(2 + shelf * 5, zoom);
       let bx = x + px(2, zoom);
       for (let b = 0; b < 6; b++) {
-        const bw = px(1.5 + Math.random() * 1.5, zoom) || px(2, zoom);
-        const bh = px(3 + Math.random(), zoom);
-        ctx.fillStyle = bookColors[(shelf * 6 + b) % bookColors.length];
+        const idx = shelf * 6 + b;
+        const bw = px(BOOK_WIDTHS[idx % BOOK_WIDTHS.length], zoom) || px(2, zoom);
+        const bh = px(BOOK_HEIGHTS[idx % BOOK_HEIGHTS.length], zoom);
+        ctx.fillStyle = bookColors[idx % bookColors.length];
         ctx.fillRect(bx, sy + px(4, zoom) - bh, bw, bh);
         bx += bw + (px(0.5, zoom) || 1);
         if (bx > x + tw - px(3, zoom)) break;

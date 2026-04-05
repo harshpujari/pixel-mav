@@ -94,17 +94,21 @@ export function drawSingleCat(
     drawBlinkOverlay(ctx, dx, dy, zoom, cat.breed, cat.hueShift, flipH);
   }
 
-  // State dot
-  const stateCol = STATE_COLOR[cat.state];
-  if (stateCol) {
-    const dotSize = Math.max(2, Math.round(2 * zoom));
-    ctx.fillStyle = stateCol;
-    ctx.fillRect(
-      Math.round(dx + w / 2 - dotSize / 2),
-      dy - dotSize - Math.round(zoom),
-      dotSize,
-      dotSize,
-    );
+  // Activity badge (tool name) or state dot
+  if (cat.activeTool && SITTING_STATES.has(cat.state)) {
+    drawCatBadge(ctx, dx + w / 2, dy - Math.round(zoom), zoom, cat.activeTool, cat.state);
+  } else {
+    const stateCol = STATE_COLOR[cat.state];
+    if (stateCol) {
+      const dotSize = Math.max(2, Math.round(2 * zoom));
+      ctx.fillStyle = stateCol;
+      ctx.fillRect(
+        Math.round(dx + w / 2 - dotSize / 2),
+        dy - dotSize - Math.round(zoom),
+        dotSize,
+        dotSize,
+      );
+    }
   }
 
   // Z-bubble for sleeping (includes nap_pile when not walking)
@@ -118,6 +122,69 @@ export function drawSingleCat(
   }
 
   ctx.globalAlpha = 1;
+}
+
+// ── Activity badge (tool name above cat) ────────────────────
+
+const MAX_BADGE_CHARS = 8;
+
+const BADGE_BG: Partial<Record<CatState, string>> = {
+  type: 'rgba(0, 255, 136, 0.18)',
+  read: 'rgba(0, 170, 255, 0.18)',
+  wait: 'rgba(255, 204, 0, 0.18)',
+};
+
+const BADGE_TEXT: Partial<Record<CatState, string>> = {
+  type: '#00ff88',
+  read: '#00aaff',
+  wait: '#ffcc00',
+};
+
+function drawCatBadge(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  y: number,
+  zoom: number,
+  toolName: string,
+  state: CatState,
+): void {
+  const label = toolName.length > MAX_BADGE_CHARS
+    ? toolName.slice(0, MAX_BADGE_CHARS - 1) + '\u2026'
+    : toolName;
+
+  const fontSize = Math.max(4, Math.round(3.5 * zoom));
+  ctx.font = `${fontSize}px monospace`;
+  const metrics = ctx.measureText(label);
+  const textW = metrics.width;
+
+  const padX = Math.round(1.5 * zoom);
+  const padY = Math.round(0.8 * zoom);
+  const boxW = textW + padX * 2;
+  const boxH = fontSize + padY * 2;
+  const boxX = Math.round(cx - boxW / 2);
+  const boxY = Math.round(y - boxH - zoom);
+
+  // Background pill
+  const radius = Math.round(1.5 * zoom);
+  ctx.fillStyle = BADGE_BG[state] ?? 'rgba(60, 60, 60, 0.8)';
+  ctx.beginPath();
+  ctx.roundRect(boxX, boxY, boxW, boxH, radius);
+  ctx.fill();
+
+  // Border
+  ctx.strokeStyle = BADGE_TEXT[state] ?? '#888';
+  ctx.lineWidth = Math.max(0.5, 0.5 * zoom);
+  ctx.beginPath();
+  ctx.roundRect(boxX, boxY, boxW, boxH, radius);
+  ctx.stroke();
+
+  // Text
+  ctx.fillStyle = BADGE_TEXT[state] ?? '#ccc';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, cx, boxY + boxH / 2);
+  ctx.textAlign = 'start';
+  ctx.textBaseline = 'alphabetic';
 }
 
 // ── Blink overlay (2px over eye positions) ──────────────────

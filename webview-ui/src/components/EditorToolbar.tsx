@@ -42,14 +42,9 @@ export function EditorToolbar() {
     postMessage({ type: 'saveLayout', json });
   };
 
+  // When editor is inactive, the bottom toolbar's "Layout" button handles toggling
   if (!editor.active) {
-    return (
-      <div style={toggleContainerStyle}>
-        <button onClick={toggleEditor} style={toggleBtnStyle} title="Toggle editor (E)">
-          Edit
-        </button>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -115,23 +110,6 @@ export function EditorToolbar() {
 }
 
 // ── Styles ──────────────────────────────────────────────────
-
-const toggleContainerStyle: React.CSSProperties = {
-  position: 'absolute',
-  top: 4,
-  right: 4,
-  zIndex: 10,
-};
-
-const toggleBtnStyle: React.CSSProperties = {
-  background: 'rgba(60, 60, 60, 0.8)',
-  color: '#ccc',
-  border: '1px solid #555',
-  borderRadius: 3,
-  padding: '2px 8px',
-  cursor: 'pointer',
-  fontSize: 11,
-};
 
 const toolbarStyle: React.CSSProperties = {
   position: 'absolute',
