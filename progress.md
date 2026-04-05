@@ -182,9 +182,9 @@ _Multi-cat interactions that emerge from proximity._
 - [x] Speech bubbles (permission request, waiting state with fade)
 - [x] Settings modal: import/export layout, sound toggle
 - [x] DebugOverlay: FPS, entity count, path viz (dev only)
-- [ ] Web Audio: mew (spawn), purr (idle), chime (turn complete)
-- [ ] Sound toggle + volume control (persisted)
-- [ ] Vitest unit tests: stateMachine, BFS, stateReconciler
+- [x] Web Audio: mew (spawn), purr (idle), chime (turn complete)
+- [x] Sound toggle + volume control (persisted)
+- [x] Vitest unit tests: stateMachine, BFS, stateReconciler
 - [ ] README with screenshots/GIF
 - [ ] VS Code marketplace metadata (icon, description, categories)
 - [ ] `vsce package` build passes
