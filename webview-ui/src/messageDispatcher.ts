@@ -72,6 +72,15 @@ export function dispatchMessage(msg: { type: string } & Record<string, unknown>)
       cat.activeTool = msg.tool as string;
       cat.targetWorkState = catState;
 
+      // Show waiting bubble for wait state (AskUserQuestion), clear for others
+      if (catState === 'wait') {
+        cat.bubbleType = 'waiting';
+        cat.bubbleTimer = 0;
+      } else {
+        cat.bubbleType = null;
+        cat.bubbleTimer = 0;
+      }
+
       // Toggle desk monitor on
       setDeskActiveBySeat(cat.seatCol, cat.seatRow, true);
 
@@ -108,6 +117,10 @@ export function dispatchMessage(msg: { type: string } & Record<string, unknown>)
       cat.stateDuration = AGENT_IDLE_COOLDOWN_SEC; // 2s cooldown before first idle behavior
       cat.path = [];
       cat.moveProgress = 0;
+
+      // Clear any active bubble
+      cat.bubbleType = null;
+      cat.bubbleTimer = 0;
       break;
     }
 

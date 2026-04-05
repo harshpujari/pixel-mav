@@ -56,3 +56,9 @@ export const DESPAWN_DURATION = 0.5; // seconds — yawn → curl → fade-out
 
 // ── Agent behavior ──────────────────────────────────────────
 export const AGENT_IDLE_COOLDOWN_SEC = 2; // delay before first idle behavior after agent goes idle
+
+// ── Speech bubbles (Phase 14) ──────────────────────────────
+export const BUBBLE_FADE_IN_SEC = 0.2;     // pop-in duration
+export const BUBBLE_FADE_OUT_SEC = 0.4;    // fade-out duration
+export const BUBBLE_PERMISSION_SEC = 12;   // permission bubble stays visible (then fades)
+export const BUBBLE_WAITING_SEC = 8;       // waiting bubble stays visible (then fades)

@@ -1,4 +1,11 @@
-import { DESPAWN_DURATION, SPAWN_DURATION } from '../../constants.ts';
+import {
+  BUBBLE_FADE_IN_SEC,
+  BUBBLE_FADE_OUT_SEC,
+  BUBBLE_PERMISSION_SEC,
+  BUBBLE_WAITING_SEC,
+  DESPAWN_DURATION,
+  SPAWN_DURATION,
+} from '../../constants.ts';
 import type { Cat, CatState } from '../../types.ts';
 import { cats } from '../catStore.ts';
 import { getEffectiveState } from '../stateMachine.ts';
@@ -116,9 +123,9 @@ export function drawSingleCat(
     drawZzz(ctx, dx + w, dy, zoom, cat.stateTimer, fadeAlpha);
   }
 
-  // Permission bubble
-  if (cat.bubbleType === 'permission' && cat.state === 'wait') {
-    drawBubble(ctx, dx + w / 2, dy - Math.round(4 * zoom), zoom, '?');
+  // Speech bubble (permission or waiting)
+  if (cat.bubbleType !== null) {
+    drawSpeechBubble(ctx, dx + w / 2, dy - Math.round(2 * zoom), zoom, cat.bubbleType, cat.bubbleTimer, fadeAlpha);
   }
 
   ctx.globalAlpha = 1;
@@ -245,29 +252,103 @@ function drawZzz(
   }
 }
 
-// ── Permission bubble ────────────────────────────────────────
+// ── Speech bubble (permission / waiting) ────────────────────
 
-function drawBubble(
+function drawSpeechBubble(
   ctx: CanvasRenderingContext2D,
   cx: number,
   y: number,
   zoom: number,
-  text: string,
+  type: 'permission' | 'waiting',
+  timer: number,
+  baseAlpha: number,
 ): void {
-  const r = Math.round(3 * zoom);
-  const bx = Math.round(cx - r);
-  const by = Math.round(y - r * 2);
+  const visibleDuration = type === 'permission' ? BUBBLE_PERMISSION_SEC : BUBBLE_WAITING_SEC;
 
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+  // Compute fade alpha: pop-in → visible → fade-out
+  let bubbleAlpha: number;
+  if (timer < BUBBLE_FADE_IN_SEC) {
+    bubbleAlpha = timer / BUBBLE_FADE_IN_SEC;
+  } else if (timer < visibleDuration) {
+    bubbleAlpha = 1;
+  } else {
+    bubbleAlpha = Math.max(0, 1 - (timer - visibleDuration) / BUBBLE_FADE_OUT_SEC);
+  }
+  if (bubbleAlpha <= 0) return;
+
+  const alpha = bubbleAlpha * baseAlpha;
+
+  // Pop scale (slight overshoot on appear)
+  const scale = timer < BUBBLE_FADE_IN_SEC
+    ? 0.5 + 0.6 * (timer / BUBBLE_FADE_IN_SEC) // grows to 1.1 then settles
+    : timer < BUBBLE_FADE_IN_SEC + 0.1
+    ? 1.1 - 0.1 * ((timer - BUBBLE_FADE_IN_SEC) / 0.1) // settle to 1.0
+    : 1;
+
+  // Bubble dimensions
+  const fontSize = Math.max(4, Math.round(3.5 * zoom * scale));
+  const padX = Math.round(2.5 * zoom * scale);
+  const padY = Math.round(1.5 * zoom * scale);
+
+  // Content text
+  const text = type === 'permission' ? '!' : getDots(timer);
+  ctx.font = `bold ${fontSize}px monospace`;
+  const textW = ctx.measureText(text).width;
+
+  const boxW = textW + padX * 2;
+  const boxH = fontSize + padY * 2;
+  const tailH = Math.round(2 * zoom * scale);
+  const radius = Math.round(2 * zoom * scale);
+  const boxX = Math.round(cx - boxW / 2);
+  const boxY = Math.round(y - boxH - tailH - zoom * 2);
+
+  ctx.globalAlpha = alpha;
+
+  // Bubble background
+  const bgColor = type === 'permission'
+    ? 'rgba(255, 180, 50, 0.92)'
+    : 'rgba(255, 255, 255, 0.92)';
+  ctx.fillStyle = bgColor;
   ctx.beginPath();
-  ctx.arc(bx + r, by + r, r, 0, Math.PI * 2);
+  ctx.roundRect(boxX, boxY, boxW, boxH, radius);
   ctx.fill();
 
-  ctx.fillStyle = '#cc6600';
-  ctx.font = `bold ${Math.round(3 * zoom)}px monospace`;
+  // Border
+  const borderColor = type === 'permission' ? '#cc6600' : '#aaa';
+  ctx.strokeStyle = borderColor;
+  ctx.lineWidth = Math.max(0.5, 0.6 * zoom);
+  ctx.beginPath();
+  ctx.roundRect(boxX, boxY, boxW, boxH, radius);
+  ctx.stroke();
+
+  // Tail (small triangle pointing down)
+  const tailW = Math.round(2 * zoom * scale);
+  ctx.fillStyle = bgColor;
+  ctx.beginPath();
+  ctx.moveTo(cx - tailW, boxY + boxH);
+  ctx.lineTo(cx, boxY + boxH + tailH);
+  ctx.lineTo(cx + tailW, boxY + boxH);
+  ctx.closePath();
+  ctx.fill();
+  // Tail border edges
+  ctx.strokeStyle = borderColor;
+  ctx.beginPath();
+  ctx.moveTo(cx - tailW, boxY + boxH - 0.5);
+  ctx.lineTo(cx, boxY + boxH + tailH);
+  ctx.lineTo(cx + tailW, boxY + boxH - 0.5);
+  ctx.stroke();
+
+  // Text
+  ctx.fillStyle = type === 'permission' ? '#7a2e00' : '#444';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, bx + r, by + r);
+  ctx.fillText(text, cx, boxY + boxH / 2);
   ctx.textAlign = 'start';
   ctx.textBaseline = 'alphabetic';
+}
+
+/** Animated dots: cycles through ".", "..", "..." */
+function getDots(timer: number): string {
+  const count = (Math.floor(timer / 0.5) % 3) + 1;
+  return '.'.repeat(count);
 }

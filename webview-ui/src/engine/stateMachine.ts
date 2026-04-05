@@ -1,4 +1,7 @@
 import {
+  BUBBLE_FADE_OUT_SEC,
+  BUBBLE_PERMISSION_SEC,
+  BUBBLE_WAITING_SEC,
   GROOM_FRAME_SEC,
   GROOM_MAX_SEC,
   GROOM_MIN_SEC,
@@ -47,6 +50,7 @@ export function updateCat(
   if (cat.socialCooldown > 0) cat.socialCooldown -= dt;
   advanceAnimation(cat, dt);
   updateBlink(cat, dt);
+  updateBubble(cat, dt);
 
   switch (cat.state) {
     case 'idle':    updateIdle(cat, map, allCats, blocked); break;
@@ -196,6 +200,23 @@ function updateBlink(cat: Cat, dt: number): void {
   cat.blinkTimer -= dt;
   if (cat.blinkTimer <= -BLINK_DURATION) {
     cat.blinkTimer = randRange(2.5, 5);
+  }
+}
+
+// ── Speech bubble timer ─────────────────────────────────────
+
+function updateBubble(cat: Cat, dt: number): void {
+  if (cat.bubbleType === null) return;
+  cat.bubbleTimer += dt;
+
+  const visibleDuration = cat.bubbleType === 'permission'
+    ? BUBBLE_PERMISSION_SEC
+    : BUBBLE_WAITING_SEC;
+
+  // Clear bubble after visible + fade-out time
+  if (cat.bubbleTimer >= visibleDuration + BUBBLE_FADE_OUT_SEC) {
+    cat.bubbleType = null;
+    cat.bubbleTimer = 0;
   }
 }
 
