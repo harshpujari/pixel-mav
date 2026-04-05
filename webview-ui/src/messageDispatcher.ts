@@ -1,6 +1,7 @@
 import { AGENT_IDLE_COOLDOWN_SEC, WALK_SPEED } from './constants.ts';
 import { deserializeLayout } from './editor/layoutSerializer.ts';
 import { addCat, cats, getCat, makeCat, removeCat } from './engine/catStore.ts';
+import { applySettingsLoaded } from './settingsStore.ts';
 import { tileCenter } from './engine/movement.ts';
 import { findPath } from './engine/pathfinding.ts';
 import { emitDespawnEffect, emitSpawnEffect } from './engine/renderer/effectRenderer.ts';
@@ -214,7 +215,10 @@ export function dispatchMessage(msg: { type: string } & Record<string, unknown>)
       break;
     }
 
-    // settingsLoaded, etc. handled elsewhere
+    case 'settingsLoaded':
+      applySettingsLoaded(msg);
+      break;
+
     default:
       break;
   }

@@ -58,6 +58,14 @@ export class PixelMavViewProvider implements vscode.WebviewViewProvider {
           this.saveLayout(message.json as string);
           break;
 
+        case 'importLayout':
+          this.importLayout();
+          break;
+
+        case 'setVolume':
+          this.context.globalState.update('pixel-mav.volume', message.volume);
+          break;
+
         case 'focusCat': {
           const agent = this.agentManager?.getAgent(message.agentId as string);
           if (agent?.terminalRef) {
@@ -82,7 +90,8 @@ export class PixelMavViewProvider implements vscode.WebviewViewProvider {
 
   private onWebviewReady(): void {
     const soundEnabled = this.context.globalState.get<boolean>(GLOBAL_KEY_SOUND_ENABLED, true);
-    this.webview?.postMessage({ type: 'settingsLoaded', soundEnabled });
+    const volume = this.context.globalState.get<number>('pixel-mav.volume', 0.5);
+    this.webview?.postMessage({ type: 'settingsLoaded', soundEnabled, volume });
 
     // Load saved layout
     this.loadAndSendLayout();
@@ -128,6 +137,28 @@ export class PixelMavViewProvider implements vscode.WebviewViewProvider {
       }
     } catch {
       // File may not exist yet — that's fine
+    }
+  }
+
+  // ── Layout import ──────────────────────────────────────────
+
+  private async importLayout(): Promise<void> {
+    const uris = await vscode.window.showOpenDialog({
+      canSelectMany: false,
+      filters: { 'JSON files': ['json'] },
+      openLabel: 'Import Layout',
+    });
+    if (!uris || uris.length === 0) return;
+
+    try {
+      const data = await fs.promises.readFile(uris[0].fsPath, 'utf-8');
+      // Validate it's parseable JSON before sending
+      JSON.parse(data);
+      // Save to the standard layout path as well
+      this.saveLayout(data);
+      this.webview?.postMessage({ type: 'layoutLoaded', json: data });
+    } catch (err) {
+      vscode.window.showErrorMessage(`Pixel Mav: failed to import layout — ${err}`);
     }
   }
 
