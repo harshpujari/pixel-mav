@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { startGameLoop } from '../engine/gameLoop.ts';
+import { warmUpAudio } from '../engine/audio/audioEngine.ts';
 import { cats, updateAllCats } from '../engine/catStore.ts';
 import { Camera } from '../engine/renderer/camera.ts';
 import { updateDebugFps, toggleDebug } from '../engine/renderer/debugOverlay.ts';
@@ -174,6 +175,7 @@ export function GameCanvas() {
 
   // ── Click: editor tool or focus agent terminal ─────────────
   const onClick = useCallback((e: React.MouseEvent) => {
+    warmUpAudio(); // satisfy browser autoplay policy on first interaction
     if (editor.active) return; // handled by mousedown/up
 
     const canvas = canvasRef.current;

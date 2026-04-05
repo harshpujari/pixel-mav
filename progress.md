@@ -180,8 +180,8 @@ _Multi-cat interactions that emerge from proximity._
 - [x] Bottom toolbar: Layout, Settings buttons
 - [x] CatBadge: activity label above cat (tool name, truncated)
 - [x] Speech bubbles (permission request, waiting state with fade)
-- [ ] Settings modal: import/export layout, sound toggle
-- [ ] DebugOverlay: FPS, entity count, path viz (dev only)
+- [x] Settings modal: import/export layout, sound toggle
+- [x] DebugOverlay: FPS, entity count, path viz (dev only)
 - [ ] Web Audio: mew (spawn), purr (idle), chime (turn complete)
 - [ ] Sound toggle + volume control (persisted)
 - [ ] Vitest unit tests: stateMachine, BFS, stateReconciler

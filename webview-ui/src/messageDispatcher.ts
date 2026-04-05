@@ -1,5 +1,6 @@
 import { AGENT_IDLE_COOLDOWN_SEC, WALK_SPEED } from './constants.ts';
 import { deserializeLayout } from './editor/layoutSerializer.ts';
+import { playMew, playPurr, playChime } from './engine/audio/audioEngine.ts';
 import { addCat, cats, getCat, makeCat, removeCat } from './engine/catStore.ts';
 import { applySettingsLoaded } from './settingsStore.ts';
 import { tileCenter } from './engine/movement.ts';
@@ -42,6 +43,7 @@ export function dispatchMessage(msg: { type: string } & Record<string, unknown>)
 
       addCat(cat);
       emitSpawnEffect(cat.x, cat.y, cat.isSubagent);
+      playMew();
       break;
     }
 
@@ -122,6 +124,7 @@ export function dispatchMessage(msg: { type: string } & Record<string, unknown>)
       // Clear any active bubble
       cat.bubbleType = null;
       cat.bubbleTimer = 0;
+      playChime();
       break;
     }
 
@@ -137,6 +140,7 @@ export function dispatchMessage(msg: { type: string } & Record<string, unknown>)
         cat.state = 'wait';
         cat.stateTimer = 0;
       }
+      playPurr();
       break;
     }
 
