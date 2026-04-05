@@ -9,7 +9,18 @@
     "vscode": "^1.107.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Visualization",
+    "Education"
+  ],
+  "keywords": [
+    "claude",
+    "agent",
+    "pixel art",
+    "cats",
+    "vibe coding",
+    "pet",
+    "companion"
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",

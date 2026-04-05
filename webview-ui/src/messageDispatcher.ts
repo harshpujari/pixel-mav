@@ -9,6 +9,7 @@ import { emitDespawnEffect, emitSpawnEffect } from './engine/renderer/effectRend
 import { getBlockedTiles, setDeskActiveBySeat } from './environment/furnitureStore.ts';
 import { isWalkable, randomWalkableTile, tileMap } from './environment/tileMap.ts';
 import type { CatBreed } from './types.ts';
+import { toggleStressTest, isStressTestActive } from './engine/renderer/debugOverlay.ts';
 
 /**
  * Handle incoming messages from the extension and update catStore accordingly.
@@ -222,6 +223,30 @@ export function dispatchMessage(msg: { type: string } & Record<string, unknown>)
     case 'settingsLoaded':
       applySettingsLoaded(msg);
       break;
+
+    case 'debugStressTest': {
+      toggleStressTest();
+      const active = isStressTestActive();
+      if (active) {
+        const breeds: CatBreed[] = ['tabby', 'tuxedo', 'calico', 'siamese', 'void', 'orange'];
+        const blocked = getBlockedTiles();
+        for (let i = 0; i < 20; i++) {
+          const breed = breeds[i % breeds.length];
+          const spawn = randomWalkableTile(tileMap, blocked) ?? { col: 0, row: 0 };
+          const cat = makeCat(`test-${i}`, spawn.col, spawn.row, breed);
+          cat.x = tileCenter(spawn.col);
+          cat.y = tileCenter(spawn.row);
+          addCat(cat);
+          emitSpawnEffect(cat.x, cat.y, false);
+        }
+      } else {
+        // Remove all test cats
+        for (const [id] of cats) {
+          if (id.startsWith('test-')) removeCat(id);
+        }
+      }
+      break;
+    }
 
     default:
       break;

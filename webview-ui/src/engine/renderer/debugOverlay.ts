@@ -11,11 +11,14 @@ import { getParticleCount } from './effectRenderer.ts';
 // ── State ───────────────────────────────────────────────────
 
 let enabled = false;
+let stressTestActive = false;
 
 // FPS tracking (smoothed rolling average)
 const FPS_SAMPLES = 60;
 const frameTimes: number[] = [];
 let fps = 0;
+let minFps = 60;
+let avgFps = 0;
 
 export function isDebugEnabled(): boolean {
   return enabled;
@@ -25,6 +28,22 @@ export function toggleDebug(): void {
   enabled = !enabled;
   frameTimes.length = 0;
   fps = 0;
+  minFps = 60;
+  avgFps = 0;
+  stressTestActive = false;
+}
+
+export function isStressTestActive(): boolean {
+  return stressTestActive;
+}
+
+export function toggleStressTest(): void {
+  stressTestActive = !stressTestActive;
+  if (stressTestActive) {
+    minFps = 60;
+    avgFps = 0;
+    frameTimes.length = 0;
+  }
 }
 
 /** Call once per frame with delta time in seconds */
@@ -37,6 +56,12 @@ export function updateDebugFps(dt: number): void {
 
   const avg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
   fps = avg > 0 ? 1 / avg : 0;
+
+  if (stressTestActive) {
+    if (fps < minFps && fps > 10) minFps = fps; // ignore huge drops during spawn
+    if (avgFps === 0) avgFps = fps;
+    else avgFps = (avgFps * 0.95) + (fps * 0.05); // smoothed average
+  }
 }
 
 // ── Render ──────────────────────────────────────────────────
@@ -149,17 +174,21 @@ function drawStats(ctx: CanvasRenderingContext2D): void {
   }
 
   const lines = [
-    `FPS: ${Math.round(fps)}`,
+    `FPS: ${Math.round(fps)}${stressTestActive ? ` (min:${Math.round(minFps)} avg:${Math.round(avgFps)})` : ''}`,
     `Cats: ${catCount} (active:${active} idle:${idle} walk:${walking})`,
     `Furniture: ${furnCount}`,
     `Particles: ${particleCount}`,
   ];
 
+  if (stressTestActive) {
+    lines.push('STRESS TEST ACTIVE (20 CATS)');
+  }
+
   const fontSize = 11;
   const lineHeight = 14;
   const padX = 8;
   const padY = 6;
-  const boxW = 280;
+  const boxW = stressTestActive ? 320 : 280;
   const boxH = padY * 2 + lines.length * lineHeight;
 
   // Background

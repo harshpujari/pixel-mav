@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
+import { dispatchMessage } from '../messageDispatcher.ts';
 import { startGameLoop } from '../engine/gameLoop.ts';
 import { warmUpAudio } from '../engine/audio/audioEngine.ts';
 import { cats, updateAllCats } from '../engine/catStore.ts';
@@ -108,6 +109,13 @@ export function GameCanvas() {
       // F3: toggle debug overlay (always)
       if (e.key === 'F3') {
         toggleDebug();
+        e.preventDefault();
+        return;
+      }
+
+      // F4: toggle stress test (always)
+      if (e.key === 'F4') {
+        dispatchMessage({ type: 'debugStressTest' });
         e.preventDefault();
         return;
       }

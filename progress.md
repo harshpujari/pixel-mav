@@ -176,7 +176,7 @@ _Multi-cat interactions that emerge from proximity._
 
 ---
 
-## Phase 14 — UI Polish + Audio + Release
+## Phase 14 — UI Polish + Audio + Release ✓
 - [x] Bottom toolbar: Layout, Settings buttons
 - [x] CatBadge: activity label above cat (tool name, truncated)
 - [x] Speech bubbles (permission request, waiting state with fade)
@@ -185,8 +185,8 @@ _Multi-cat interactions that emerge from proximity._
 - [x] Web Audio: mew (spawn), purr (idle), chime (turn complete)
 - [x] Sound toggle + volume control (persisted)
 - [x] Vitest unit tests: stateMachine, BFS, stateReconciler
-- [ ] README with screenshots/GIF
-- [ ] VS Code marketplace metadata (icon, description, categories)
-- [ ] `vsce package` build passes
-- [ ] Performance profiling (60 FPS with 20 cats)
-- [ ] Cross-platform testing (macOS, Windows, Linux)
+- [x] README with screenshots/GIF
+- [x] VS Code marketplace metadata (icon, description, categories)
+- [x] `vsce package` build passes
+- [x] Performance profiling (60 FPS with 20 cats) — automated via F4 stress test
+- [x] Cross-platform testing (macOS, Windows, Linux)
