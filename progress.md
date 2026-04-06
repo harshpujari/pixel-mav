@@ -189,4 +189,4 @@ _Multi-cat interactions that emerge from proximity._
 - [x] VS Code marketplace metadata (icon, description, categories)
 - [x] `vsce package` build passes
 - [x] Performance profiling (60 FPS with 20 cats) — automated via F4 stress test
-- [x] Cross-platform testing (macOS, Windows, Linux)
+- [x] Cross-platform testing (macOS, Windows, Linux) 
