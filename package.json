@@ -4,6 +4,8 @@
   "description": "Watch your Claude Code agents come to life as animated pixel art cats",
   "version": "0.1.0",
   "publisher": "harshpujari",
+  "repository":"https://github.com/harshpujari/pixel-mav",
+  "icon":"",
   "license": "MIT",
   "engines": {
     "vscode": "^1.107.0"
