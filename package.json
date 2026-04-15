@@ -38,11 +38,11 @@
       }
     ],
     "viewsContainers": {
-      "panel": [
+      "activitybar": [
         {
           "id": "pixel-mav-panel",
           "title": "Pixel Mav",
-          "icon": "$(window)"
+          "icon": "media/cat-curled-svgrepo-com.svg" 
         }
       ]
     },
