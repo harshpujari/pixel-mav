@@ -24,6 +24,15 @@ const CLAUDE_TERMINAL_RE = /claude/i;
 const JSONL_DISCOVERY_MS = 10_000;
 const JSONL_SCAN_INTERVAL_MS = 1_000;
 
+/** How often to scan the project directory for new JSONL files (file-based detection). */
+const DIR_SCAN_INTERVAL_MS = 3_000;
+
+/** A file-based agent is considered stale if its JSONL hasn't been written to in this long. */
+const FILE_AGENT_STALE_MS = 60_000;
+
+/** Only consider JSONL files modified within this window as "active" for file-based detection. */
+const FILE_AGENT_RECENT_MS = 30_000;
+
 /** Predefined seat positions on the grid (Phase 6 replaces with desk-derived seats). */
 const DEFAULT_SEATS: Array<{ col: number; row: number }> = [
   { col: 3, row: 3 },  { col: 7, row: 3 },
@@ -48,9 +57,13 @@ export class AgentManager {
   /** Sub-agent tracking: toolId → child agent ID. */
   private subAgentTools = new Map<string, number>();
 
+  /** Agents spawned via file-based detection (no terminal). Keyed by JSONL path. */
+  private fileAgents = new Map<string, number>();
+
   private nextId = 1;
   private breedIndex = 0;
   private disposables: vscode.Disposable[] = [];
+  private dirScanInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly postToWebview: (msg: ExtensionToWebviewMessage) => void,
@@ -79,9 +92,21 @@ export class AgentManager {
         if (agentId !== undefined) this.despawnAgent(agentId);
       }),
     );
+
+    // File-based detection: scan project dir for active JSONL files
+    // This catches Claude sessions that don't have a matching terminal name
+    this.scanDirectoryForAgents();
+    this.dirScanInterval = setInterval(
+      () => this.scanDirectoryForAgents(),
+      DIR_SCAN_INTERVAL_MS,
+    );
   }
 
   dispose(): void {
+    if (this.dirScanInterval) {
+      clearInterval(this.dirScanInterval);
+      this.dirScanInterval = null;
+    }
     for (const d of this.disposables) d.dispose();
     this.disposables = [];
     for (const w of this.watchers.values()) w.stop();
@@ -92,6 +117,7 @@ export class AgentManager {
     this.terminalToAgent.clear();
     this.claimedJsonls.clear();
     this.subAgentTools.clear();
+    this.fileAgents.clear();
   }
 
   /** Build the existingCats message for webview reload recovery. */
@@ -183,7 +209,10 @@ export class AgentManager {
     this.reconcilers.get(id)?.dispose();
     this.reconcilers.delete(id);
 
-    if (agent.jsonlPath) this.claimedJsonls.delete(agent.jsonlPath);
+    if (agent.jsonlPath) {
+      this.claimedJsonls.delete(agent.jsonlPath);
+      this.fileAgents.delete(agent.jsonlPath);
+    }
     if (agent.terminalRef) this.terminalToAgent.delete(agent.terminalRef);
 
     this.agents.delete(id);
@@ -235,6 +264,97 @@ export class AgentManager {
     };
 
     scan();
+  }
+
+  // ── File-based agent detection ────────────────────────────
+
+  /**
+   * Scan the Claude project directory for active JSONL files not claimed
+   * by any terminal-based agent. This catches Claude sessions launched
+   * from terminals whose name doesn't match /claude/i (e.g. user typed
+   * `claude` in a plain "zsh" terminal).
+   *
+   * Also checks for stale file-based agents and despawns them.
+   */
+  private scanDirectoryForAgents(): void {
+    const projectDir = claudeProjectDir(this.workspacePath);
+    const now = Date.now();
+
+    let files: Array<{ name: string; full: string; mtime: number }>;
+    try {
+      files = fs.readdirSync(projectDir)
+        .filter((f) => f.endsWith('.jsonl'))
+        .map((f) => {
+          const full = path.join(projectDir, f);
+          return { name: f, full, mtime: fs.statSync(full).mtimeMs };
+        });
+    } catch {
+      return; // Directory doesn't exist yet
+    }
+
+    // Spawn agents for unclaimed, recently-modified JSONL files
+    for (const file of files) {
+      if (this.claimedJsonls.has(file.full)) continue;
+      if (now - file.mtime > FILE_AGENT_RECENT_MS) continue;
+
+      this.spawnFileAgent(file.full, file.name);
+    }
+
+    // Despawn stale file-based agents
+    for (const [jsonlPath, agentId] of this.fileAgents) {
+      try {
+        const mtime = fs.statSync(jsonlPath).mtimeMs;
+        if (now - mtime > FILE_AGENT_STALE_MS) {
+          this.despawnAgent(agentId);
+          this.fileAgents.delete(jsonlPath);
+        }
+      } catch {
+        // File gone — despawn
+        this.despawnAgent(agentId);
+        this.fileAgents.delete(jsonlPath);
+      }
+    }
+  }
+
+  /**
+   * Spawn an agent from a JSONL file (no terminal reference).
+   */
+  private spawnFileAgent(jsonlFullPath: string, fileName: string): void {
+    const id = this.nextId++;
+    const { breed, hueShift } = this.pickBreed();
+    const seat = this.pickSeat();
+
+    const agent: AgentState = {
+      id,
+      sessionId: fileName.replace('.jsonl', ''),
+      terminalRef: null,
+      status: 'idle',
+      activeTool: null,
+      breed,
+      hueShift,
+      seatCol: seat.col,
+      seatRow: seat.row,
+      jsonlPath: jsonlFullPath,
+      parentId: null,
+    };
+
+    this.agents.set(id, agent);
+    this.claimedJsonls.add(jsonlFullPath);
+    this.fileAgents.set(jsonlFullPath, id);
+
+    this.postToWebview({
+      type: 'catSpawned',
+      agentId: String(id),
+      breed,
+      hueShift,
+      seatCol: seat.col,
+      seatRow: seat.row,
+      isSubagent: false,
+      parentAgentId: null,
+    });
+
+    // Wire up transcript watching immediately since we already have the JSONL
+    this.wireWatcher(agent);
   }
 
   // ── Watcher + Reconciler wiring ──────────────────────────
